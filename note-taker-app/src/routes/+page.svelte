@@ -33,9 +33,15 @@
         }
         pages = loadedPages;
     }
+
+    // Function to remove the current PDF
+    function handleRemovePDF() {
+        // Clear the pages array to remove the current PDF
+        pages = [];
+    }
 </script>
 
-<Navbar onUpload={handleFileSelected} />
+<Navbar onUpload={handleFileSelected} onRemove={handleRemovePDF} />
 
 <div id="content">
     {#each pages as item (item.id)} 

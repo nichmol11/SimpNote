@@ -20,7 +20,8 @@
       // 2. Render PDF Page to Canvas
       const renderContext = {
         canvasContext: context,
-        viewport: viewport
+        viewport: viewport,
+        canvas: canvas
       };
       await pageProxy.render(renderContext).promise;
     }
