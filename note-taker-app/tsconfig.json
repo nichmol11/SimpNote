@@ -1,15 +1,11 @@
 {
-	"extends": "./.svelte-kit/tsconfig.json",
-	"compilerOptions": {
-		"rewriteRelativeImportExtensions": true,
-		"allowJs": true,
-		"checkJs": true,
-		"forceConsistentCasingInFileNames": true,
-		"resolveJsonModule": true,
-		"skipLibCheck": true,
-		"sourceMap": true,
-		"strict": true,
-		"module": "NodeNext",
-		"moduleResolution": "NodeNext"
-	}
+    "extends": "./.svelte-kit/tsconfig.json",
+    "compilerOptions": {
+        "moduleResolution": "bundler",
+        "module": "esnext",
+        "allowJs": true,
+        "checkJs": true,
+        "sourceMap": true,
+        "strict": true
+    }
 }

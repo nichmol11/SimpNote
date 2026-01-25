@@ -39,11 +39,13 @@
 </section>
 
 <style>
-  .page-row { 
+
+  .page-row {
     display: flex; 
     gap: 30px; 
     margin-bottom: 50px; 
     justify-content: center;
+    /* background-color: #fafafa; */
   }
   .pdf-viewer {
     flex: 1;

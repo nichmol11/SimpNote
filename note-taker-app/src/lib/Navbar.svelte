@@ -1,7 +1,9 @@
 <script lang="ts">
     // Define the prop to receive the function from +page.svelte
-    export let onUpload: (e: Event) => void;``
+    export let onUpload: (e: Event) => void;
     export let onRemove: () => void;
+    export let toggleSidebar: () => void;
+    export let onSave: () => void;
     
     let currentFileName: string = "No PDF selected";
     let fileInput: HTMLInputElement;
@@ -26,6 +28,7 @@
 
 <nav class="navbar">
     <div class="nav-content">
+        <button id="sidebar-toggle" on:click={toggleSidebar}><img src="src/lib/img/sidebar-icon.svg" alt="sidebar button"/></button>
         <span class="logo">PDF Notes</span>
         <div class="file-section">
             {#if currentFileName === "No PDF selected"}
@@ -40,7 +43,9 @@
             {/if}
         </div>
         <div class="navigation-options">
-            <span class="save-btn" title="Save notes"><img src="src/lib/img/save-icon.svg" alt="save button"/></span>
+            <button type="button" class="save-btn" on:click={onSave} title="Save notes">
+                <img src="src/lib/img/save-icon.svg" alt="save button"/>
+            </button>
         </div>
     </div>
 </nav>
@@ -137,5 +142,10 @@
         position: absolute;
         right: 20px;
         top: 10px;
+    }
+
+    #sidebar-toggle img {
+        height: 40px;
+        cursor: pointer;
     }
 </style>

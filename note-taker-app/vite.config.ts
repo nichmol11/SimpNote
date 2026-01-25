@@ -6,6 +6,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	
+	optimizeDeps: {
+		exclude: ['pdfjs-dist'] // Add this line
+	},
 
 	test: {
 		expect: { requireAssertions: true },

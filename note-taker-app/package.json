@@ -44,6 +44,7 @@
 		"@tailwindcss/forms": "^0.5.10",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.1.17",
+		"@tauri-apps/cli": "^2.9.6",
 		"@types/node": "^22",
 		"@vitest/browser-playwright": "^4.0.15",
 		"eslint": "^9.39.1",
@@ -70,6 +71,10 @@
 		"svelte"
 	],
 	"dependencies": {
-		"pdfjs-dist": "^5.4.530"
+		"@tauri-apps/plugin-dialog": "^2.6.0",
+		"@tauri-apps/plugin-fs": "^2.4.5",
+		"dexie": "^4.2.1",
+		"pdfjs-dist": "^5.4.530",
+		"tauri": "^0.15.0"
 	}
 }
