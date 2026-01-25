@@ -6,7 +6,10 @@
     "main"
   ],
   "permissions": [
-    "core:default",
-    "fs:default"
+    "fs:default",
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$APPDATA/*" }]
+    }
   ]
 }
