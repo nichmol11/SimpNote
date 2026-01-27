@@ -1,13 +1,14 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    import { openDirectory, restoreDirectory, loadProject } from '$lib/fileSystem';
+    import { openDirectory, restoreDirectory, loadNote } from '$lib/fileSystem';
     import { 
         getFolderList, 
         setFolderList, 
         getRootName, 
         setRootName, 
         loadWorkspace,
-        renameItem
+        renameItem,
+        deleteNote
     } from '$lib/projectStore.svelte';
 
     interface Props {
@@ -18,37 +19,61 @@
     const { isSidebarOpen, toggleSidebar }: Props = $props();
     const navbarContext = getContext<any>('navbar');
 
-    // Use derived state from the store to update UI automatically
-    // In Svelte 5, if the store returns a proxy/state, we can use it directly.
-    // Assuming getFolderList() returns the state object itself:
     let folderList = $derived(getFolderList());
     let rootFolderName = $derived(getRootName());
     
-    // Local UI state (expanded folders is UI preference, can remain local or go to store)
     let expandedFolders = $state(new Set<string>());
-    
-    // --- State for Drag and Drop ---
     let draggedItem = $state<{ folderId: string; fileIndex: number | null } | null>(null);
     let dragEnterFolder = $state<string | null>(null);
+    let dropPosition = $state<'before' | 'after' | null>(null);
+    
+    // Derived state: which folders should show top/bottom borders
+    let highlightTopBorder = $derived.by(() => {
+        if (!dragEnterFolder || !dropPosition || draggedItem?.fileIndex !== null) return null;
+        
+        const targetIndex = folderList.findIndex((f: any) => f.id === dragEnterFolder);
+        if (targetIndex === -1) return null;
+        
+        if (dropPosition === 'before') {
+            // Highlight top of target folder
+            return dragEnterFolder;
+        } else {
+            // Highlight top of folder below target (if exists)
+            return targetIndex < folderList.length - 1 ? folderList[targetIndex + 1].id : null;
+        }
+    });
+    
+    let highlightBottomBorder = $derived.by(() => {
+        if (!dragEnterFolder || !dropPosition || draggedItem?.fileIndex !== null) return null;
+        
+        const targetIndex = folderList.findIndex((f: any) => f.id === dragEnterFolder);
+        if (targetIndex === -1) return null;
+        
+        if (dropPosition === 'before') {
+            // Highlight bottom of folder above target (if exists)
+            return targetIndex > 0 ? folderList[targetIndex - 1].id : null;
+        } else {
+            // Highlight bottom of target folder
+            return dragEnterFolder;
+        }
+    });
 
-    // --- Persistence Logic ---
-
-    // 1. Initialize
     onMount(async () => {
+        console.log("Sidebar mounted. Restoring directory...");
         const handle = await restoreDirectory();
+        
         if (handle) {
+            console.log("Directory restored:", handle.name);
             setRootName(handle.name);
-            await loadWorkspace(); // Now handled by the store logic
+            await loadWorkspace(); 
+        } else {
+            console.log("No directory restored.");
         }
         
-        // Register refresh function with navbar context if needed
-        // Since store handles state, we might just re-call loadWorkspace
         if (navbarContext && navbarContext.setRefreshSidebar) {
             navbarContext.setRefreshSidebar(loadWorkspace);
         }
     });
-
-    // --- Actions ---
 
     async function handleOpenFolder() {
         const handle = await openDirectory();
@@ -59,24 +84,29 @@
     }
 
     function addNewFolder(name: string) {
-        // Direct mutation of the store state (Svelte 5 proxy allows this if set up right)
-        // OR use a store method. Here we assume direct mutation for simplicity based on previous steps
-        const currentList = getFolderList();
+        const currentList = structuredClone($state.snapshot(folderList));
         currentList.push({
             id: Math.random().toString(36).substr(2, 9),
             name: name,
             files: []
         });
-        setFolderList(currentList); // Triggers save in store (if we added a listener) or we call save manually
-        
-        // Note: For a robust app, add a "saveStructure()" method to the store and call it here.
-        // For now, we rely on the user explicit save or add a specialized store method.
+        setFolderList(currentList);
     }
 
     function deleteFolder(folderId: string) {
         if (confirm("Remove this folder from sidebar? (Files will remain on disk)")) {
-            const newList = folderList.filter(f => f.id !== folderId);
+            const currentList = structuredClone($state.snapshot(folderList));
+            const newList = currentList.filter((f: any) => f.id !== folderId);
             setFolderList(newList);
+        }
+    }
+    
+    function handleFolderRename(folderId: string, newName: string) {
+        const currentList = structuredClone($state.snapshot(folderList));
+        const folder = currentList.find((f: any) => f.id === folderId);
+        if (folder) {
+            folder.name = newName;
+            setFolderList(currentList);
         }
     }
 
@@ -90,35 +120,54 @@
         expandedFolders = newSet;
     }
 
-    // --- Drag and Drop (Updated to use Store) ---
-
     function handleDragStart(event: DragEvent, folderId: string, fileIndex: number | null = null) {
         draggedItem = { folderId, fileIndex };
-        if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData('application/json', JSON.stringify(draggedItem));
+        }
     }
 
     function handleDragOver(event: DragEvent, targetFolderId: string) {
         event.preventDefault(); 
         if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        
         dragEnterFolder = targetFolderId;
+        
+        // Only calculate position for folder reordering (not file moves)
+        if (draggedItem?.fileIndex === null) {
+            const target = event.currentTarget as HTMLElement;
+            const rect = target.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+            
+            dropPosition = event.clientY < midpoint ? 'before' : 'after';
+        } else {
+            dropPosition = null;
+        }
     }
 
     function handleDragLeave() {
         dragEnterFolder = null;
+        dropPosition = null;
     }
 
-    function handleFolderDrop(targetFolderId: string) {
+    async function handleFolderDrop(event: DragEvent, targetFolderId: string) {
+        event.preventDefault();
+        event.stopPropagation();
+        
         if (!draggedItem) return;
 
-        // Clone list to avoid mutation during calculation if stricter reactivity is needed
-        // But with Svelte 5 proxies, we can often mutate in place.
-        // We'll use a safer copy-modify-set approach to ensure updates trigger.
-        const newList = [...folderList];
+        const newList = structuredClone($state.snapshot(folderList));
 
-        const sourceFolderIndex = newList.findIndex(f => f.id === draggedItem!.folderId);
-        const targetFolderIndex = newList.findIndex(f => f.id === targetFolderId);
+        const sourceFolderIndex = newList.findIndex((f: any) => f.id === draggedItem!.folderId);
+        const targetFolderIndex = newList.findIndex((f: any) => f.id === targetFolderId);
 
-        if (sourceFolderIndex === -1 || targetFolderIndex === -1) return;
+        if (sourceFolderIndex === -1 || targetFolderIndex === -1) {
+            draggedItem = null;
+            dragEnterFolder = null;
+            dropPosition = null;
+            return;
+        }
 
         if (draggedItem.fileIndex !== null) {
             // MOVE FILE
@@ -126,20 +175,29 @@
                 const sourceFolder = newList[sourceFolderIndex];
                 const targetFolder = newList[targetFolderIndex];
                 
-                // Splice returns array, get first item
                 const [file] = sourceFolder.files.splice(draggedItem.fileIndex, 1);
                 targetFolder.files.push(file);
             }
         } else {
             // REORDER FOLDER
             const movedFolder = newList.splice(sourceFolderIndex, 1)[0];
-            newList.splice(targetFolderIndex, 0, movedFolder);
+            
+            let insertIndex = targetFolderIndex;
+            
+            if (dropPosition === 'after') {
+                insertIndex = sourceFolderIndex < targetFolderIndex ? targetFolderIndex : targetFolderIndex + 1;
+            } else {
+                insertIndex = sourceFolderIndex < targetFolderIndex ? targetFolderIndex - 1 : targetFolderIndex;
+            }
+            
+            newList.splice(insertIndex, 0, movedFolder);
         }
 
         draggedItem = null;
         dragEnterFolder = null;
+        dropPosition = null;
         
-        setFolderList(newList); // Update store
+        await setFolderList(newList);
     }
 </script>
 
@@ -162,24 +220,26 @@
             <div 
                 class="folder"
                 class:drop-target-file={dragEnterFolder === folder.id && draggedItem?.fileIndex !== null}
-                class:drop-target-reorder={dragEnterFolder === folder.id && draggedItem?.fileIndex === null}
+                class:drop-target-top={highlightTopBorder === folder.id}
+                class:drop-target-bottom={highlightBottomBorder === folder.id}
                 draggable="true"
                 ondragstart={(e) => handleDragStart(e, folder.id)}
                 ondragover={(e) => handleDragOver(e, folder.id)}
                 ondragleave={handleDragLeave}
-                ondrop={() => handleFolderDrop(folder.id)}
+                ondrop={(e) => handleFolderDrop(e, folder.id)}
                 role="region"
             >
                 <div class="folder-header">
                     <span class="folder-icon">🖿</span>
-                    <!-- Note: We removed saveStructure onchange since we use store now. 
-                         Ideally bind:value updates store directly or use onchange to call setFolderList -->
+                    
                     <input 
                         type="text" 
-                        bind:value={folder.name} 
+                        value={folder.name} 
                         class="title-input" 
-                        onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()} 
+                        onkeydown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        onchange={(e) => handleFolderRename(folder.id, e.currentTarget.value)}
                     />
+                    
                     <button class="toggle-btn" onclick={() => toggleFolder(folder.id)}>
                         {expandedFolders.has(folder.id) ? '⯅' : '⯆'} 
                     </button>
@@ -198,26 +258,46 @@
                                     handleDragStart(e, folder.id, j);
                                 }}
                             >
-                                <button type="button" title="Open Note" class="file-open-btn" onclick={() => {console.log("Opening project:", file.name); loadProject(file.name);}}>📄</button>
+                                <button type="button" title="Open Note" class="file-open-btn" onclick={() => loadNote(file.name)}>📄</button>
                                 <input 
                                     type="text"
-                                    value={file.name} 
+                                    value={file.name.replace(/\.json$/i, '')} 
                                     class="title-input" 
                                     onkeydown={(e) => {
                                         if (e.key === 'Enter') e.currentTarget.blur();
                                     }}
                                     onchange={(e) => {
-                                        const newName = e.currentTarget.value;
-                                        // Only trigger if name actually changed
-                                        if (newName && newName !== file.name) {
-                                            renameItem(folder.id, file.name, newName);
-                                        } else {
-                                            // Revert input if empty or unchanged
-                                            e.currentTarget.value = file.name; 
+                                        const input = e.currentTarget;
+                                        let newBaseName = input.value.trim();
+                                        
+                                        if (!newBaseName.toLowerCase().endsWith('.json')) {
+                                            newBaseName += '.json';
+                                        }
+                                        
+                                        if (!newBaseName || newBaseName === ".json") {
+                                            input.value = file.name.replace(/\.json$/i, '');
+                                            return;
+                                        }
+
+                                        if (newBaseName.includes('/') || newBaseName.includes('\\')) {
+                                            alert("File names cannot contain slashes.");
+                                            input.value = file.name.replace(/\.json$/i, '');
+                                            return;
+                                        }
+
+                                        if (newBaseName !== file.name) {
+                                            renameItem(folder.id, file.name, newBaseName).catch(err => {
+                                                console.error("Rename failed:", err);
+                                                input.value = file.name.replace(/\.json$/i, '');
+                                            });
                                         }
                                     }}
                                 />
-                                <button class="del-btn" onclick={() => removeFile(folder.id)}>×</button>
+                                <button class="del-btn" onclick={(e) => {
+                                        e.stopPropagation();
+                                        deleteNote(folder.id, file.name);
+                                    }
+                                }>×</button>
                             </li>
                         {/each}
                     </ul>
@@ -232,7 +312,6 @@
 </div>
 
 <style>
-    /* Styles remain exactly the same as your provided code */
     #sidebar {
         position: fixed;
         top: 60px; left: 0;
@@ -269,8 +348,23 @@
         border: 1px solid #ddd;
         border-radius: 6px;
         overflow: hidden;
+        transition: none;
     }
-    .folder.drop-target-file { background: #eff6ff; border-color: #3b82f6; }
+    
+    /* File drop target - highlight entire folder */
+    .folder.drop-target-file { 
+        background: #eff6ff; 
+        border-color: #3b82f6; 
+    }
+    
+    /* Folder reorder - highlight borders on both sides of the gap */
+    .folder.drop-target-top {
+        border-top: 1px solid #616161;
+    }
+    
+    .folder.drop-target-bottom {
+        border-bottom: 1px solid #616161;
+    }
     
     .folder-header {
         display: flex; align-items: center; gap: 8px;

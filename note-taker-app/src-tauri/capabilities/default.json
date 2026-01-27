@@ -6,10 +6,21 @@
     "main"
   ],
   "permissions": [
+    "core:default",
     "fs:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-read-dir",
+    "fs:allow-exists",
+    "fs:allow-remove",
+    "fs:allow-rename",
+    "fs:allow-copy-file",      
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
     {
-      "identifier": "fs:allow-exists",
-      "allow": [{ "path": "$APPDATA/*" }]
+      "identifier": "fs:scope",
+      "allow": ["$HOME/**", "$APPDATA/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$DESKTOP/**"]
     }
   ]
 }

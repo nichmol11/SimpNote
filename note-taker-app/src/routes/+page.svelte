@@ -2,35 +2,67 @@
     import * as pdfjs from 'pdfjs-dist';
     import PageRow from '$lib/PageRow.svelte';
     import { getContext, onMount } from 'svelte';
-    import { saveProject } from '$lib/fileSystem'; // You need to implement this in fileSystem.ts
+    import { saveNote, importPdfFromPath, loadNote } from '$lib/fileSystem'; 
+    import { open } from '@tauri-apps/plugin-dialog';
 
-    // Optimize worker import
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
     pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+    // Get Context at TOP LEVEL
+    const navbarContext = getContext<any>('navbar');
 
     // State
     let pages = $state<{ id: number; note: string; pageProxy: pdfjs.PDFPageProxy }[]>([]);
     let currentFileName = $state<string>("");
-    let isProjectLoaded = $state(false);
+    let isNoteLoaded = $state(false);
 
-    // 1. Handle New PDF Upload (Import)
-    async function handleFileSelected(e: Event) {
-        const target = e.target as HTMLInputElement;
-        if (!target.files || target.files.length === 0) return;
+    // 1. Handle New PDF Import (Tauri Dialog)
+    async function handleFileSelected() {
+        try {
+            const selected = await open({
+                multiple: false,
+                filters: [{ name: 'PDF', extensions: ['pdf'] }]
+            });
 
-        const file = target.files[0];
-        currentFileName = file.name;
-        
-        const arrayBuffer = await file.arrayBuffer();
-        await loadPDF(arrayBuffer);
-        
-        // Save the raw PDF to the project folder immediately so it's safe
-        // (Optional: you might want to wait until explicit save)
-        isProjectLoaded = true;
+            if (selected) {
+                const sourcePath = selected as string;
+                // Import (Copy) the PDF and create JSON
+                const jsonName = await importPdfFromPath(sourcePath);
+                
+                // Immediately load the new project
+                await loadNoteData(jsonName);
+                
+                // Refresh sidebar
+                if (navbarContext && navbarContext.getRefreshSidebar) {
+                    const refreshFn = navbarContext.getRefreshSidebar();
+                    if (refreshFn) await refreshFn();
+                }
+            }
+        } catch (e) {
+            console.error("Import failed:", e);
+            alert("Failed to import PDF. Check console.");
+        }
     }
 
-    // 2. Load PDF Logic
-    async function loadPDF(arrayBuffer: ArrayBuffer, existingNotes: Record<string, string> = {}) {
+    // Helper to load project data into state
+    async function loadNoteData(jsonName: string) {
+        try {
+            const project = await loadNote(jsonName);
+            currentFileName = project.fileName;
+            
+            // Render PDF
+            await renderPDF(project.pdfData, project.notes);
+            isNoteLoaded = true;
+        } catch (e) {
+            console.error("Load failed:", e);
+        }
+    }
+
+    // Expose load function to sidebar via context (optional, or Sidebar calls store directly)
+    // ...
+
+    // 2. Render PDF Logic
+    async function renderPDF(arrayBuffer: ArrayBuffer, existingNotes: Record<string, string> = {}) {
         const pdfDoc = await pdfjs.getDocument(arrayBuffer).promise;
         const loadedPages = [];
 
@@ -38,61 +70,49 @@
             const pageProxy = await pdfDoc.getPage(i);
             loadedPages.push({
                 id: i,
-                note: existingNotes[i] || "", // Load existing note if available
+                note: existingNotes[i] || "", 
                 pageProxy: pageProxy
             });
         }
         pages = loadedPages;
     }
 
-    // 3. Handle Save (Triggered by Navbar)
+    // 3. Handle Save
     async function handleSave() {
-        if (!isProjectLoaded || !currentFileName) {
+        if (!isNoteLoaded || !currentFileName) {
             alert("No project loaded to save.");
             return;
         }
 
         const baseName = currentFileName.replace(/\.pdf$/i, '');
-        
-        // Convert array to simple object map: { "1": "note text", "2": "..." }
         const notesObject: Record<number, string> = {};
-        let hasNotes = false;
         
         pages.forEach(p => {
             if (p.note && p.note.trim().length > 0) {
                 notesObject[p.id] = p.note;
-                hasNotes = true;
             }
         });
 
         try {
-            // Save metadata JSON (and optionally PDF if you modify saveProject to handle it)
-            // We pass null for PDF data here assuming it's already saved or we only want to update notes
-            await saveProject(baseName, null, notesObject);
-            alert(`Project "${baseName}" saved successfully!`);
-            
-            // Refresh sidebar to show the new JSON file
-            const navbarContext = getContext<any>('navbar');
-            if (navbarContext && navbarContext.getRefreshSidebar) {
-                const refreshFn = navbarContext.getRefreshSidebar();
-                if (refreshFn) await refreshFn();
-            }
+            // Pass null for PDF data because we already copied the file during import!
+            // We only need to save the updated JSON notes.
+            await saveNote(baseName, null, notesObject);
+            alert(`Notes saved!`);
         } catch (e) {
             console.error("Save failed:", e);
-            alert("Failed to save project. Ensure a local folder is opened in the sidebar.");
+            alert("Failed to save notes.");
         }
     }
 
     function handleRemovePDF() {
         pages = [];
         currentFileName = "";
-        isProjectLoaded = false;
+        isNoteLoaded = false;
     }
 
     onMount(() => {
-        const navbarContext = getContext<any>('navbar');
         if (navbarContext) {
-            // Register handlers: Upload, Remove, Save
+            // Updated: handleFileSelected no longer takes an event, it triggers the dialog itself
             navbarContext.setHandlers(handleFileSelected, handleRemovePDF, handleSave);
         }
     });
@@ -108,7 +128,7 @@
     {:else}
         <div class="placeholder">
             <p>No PDF loaded.</p>
-            <p class="sub-text">Import a PDF or open a previous document from the sidebar.</p>
+            <p class="sub-text">Import a PDF or open a project from the sidebar.</p>
         </div>
     {/each}
 </div>

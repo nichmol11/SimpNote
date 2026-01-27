@@ -1,47 +1,55 @@
 <script lang="ts">
-    // Define the prop to receive the function from +page.svelte
-    export let onUpload: (e: Event) => void;
+    // Define props
+    // Updated onUpload signature: No longer needs Event as we use Tauri dialog
+    export let onUpload: () => void; 
     export let onRemove: () => void;
     export let toggleSidebar: () => void;
     export let onSave: () => void;
     
     let currentFileName: string = "No PDF selected";
-    let fileInput: HTMLInputElement;
+
+    // Allow parent to update filename (optional helper if you bind to this component)
+    // But mostly we just track state here for display. 
+    // Ideally pass currentFileName as a prop from parent for true reactivity.
     
-    function handleFileChange(e: Event) {
-        const target = e.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (file) {
-            currentFileName = file.name;
-            onUpload(e);
-        }
+    function handleUploadClick() {
+        // Trigger the parent's handler which opens the Tauri dialog
+        onUpload();
+        // Note: Filename update happens via reactivity or we can set it here if we knew it immediately,
+        // but since it's async, we usually wait for parent to pass it back.
+        // For now, we assume parent handles logic.
     }
     
     function removePDF() {
         currentFileName = "No PDF selected";
-        if (fileInput) {
-            fileInput.value = '';
-        }
         onRemove();
     }
 </script>
 
+
 <nav class="navbar">
     <div class="nav-content">
-        <button id="sidebar-toggle" on:click={toggleSidebar}><img src="src/lib/img/sidebar-icon.svg" alt="sidebar button"/></button>
+        <button id="sidebar-toggle" on:click={toggleSidebar} title="Toggle Sidebar">
+            <img src="src/lib/img/sidebar-icon.svg" alt="sidebar button"/>
+        </button>
+        
         <span class="logo">PDF Notes</span>
+        
         <div class="file-section">
             {#if currentFileName === "No PDF selected"}
-                <input type="file" bind:this={fileInput} id="fileInput" accept=".pdf" on:change={handleFileChange} />
-                <label for="fileInput" class="custom-upload-btn">Upload PDF</label>
+                <!-- Replaced <input> logic with direct button -->
+                <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
             {:else}
-                <button class="custom-upload-btn disabled" disabled>Upload PDF</button>
+                <button class="custom-upload-btn disabled" disabled>Import PDF</button>
             {/if}
+            
             <span class="file-name">{currentFileName}</span>
+            
             {#if currentFileName !== "No PDF selected"}
                 <button class="remove-btn" on:click={removePDF}>Remove PDF</button>
             {/if}
         </div>
+        
         <div class="navigation-options">
             <button type="button" class="save-btn" on:click={onSave} title="Save notes">
                 <img src="src/lib/img/save-icon.svg" alt="save button"/>
@@ -49,6 +57,7 @@
         </div>
     </div>
 </nav>
+
 
 <style>
     .navbar {
@@ -72,7 +81,9 @@
     
     .logo {
         padding-right: 20px;
+        font-weight: bold; /* Moved from bottom rules for consistency */
     }
+
 
     .file-section {
         margin-left: auto;
@@ -81,13 +92,7 @@
         gap: 10px;
     }
     
-    #fileInput {
-        position: absolute;
-        opacity: 0;
-        width: 0.1px;
-        height: 0.1px;
-        overflow: hidden;
-    }
+    /* Removed #fileInput styles as it is deleted */
     
     .custom-upload-btn {
         display: inline-block;
@@ -132,8 +137,11 @@
         background-color: #c82333;
     }
     
-    .logo { 
-        font-weight: bold; 
+    .save-btn {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
     }
 
     .save-btn img {
@@ -142,6 +150,14 @@
         position: absolute;
         right: 20px;
         top: 10px;
+    }
+
+
+    #sidebar-toggle {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
     }
 
     #sidebar-toggle img {

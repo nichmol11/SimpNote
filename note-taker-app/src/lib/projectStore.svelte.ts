@@ -1,6 +1,6 @@
 // src/lib/projectStore.svelte.ts
-import { readFile, listFiles, writeFile, renameFile } from '$lib/fileSystem';
-
+import {listFiles, renameFile, deleteFile, saveWorkspaceFile, readFile } from '$lib/fileSystem';
+import {readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
 interface FileItem {
     name: string;
     kind: 'file' | 'project';
@@ -64,21 +64,17 @@ export async function loadWorkspace() {
     if (!rootFolderName) return;
 
     try {
-        // Try to load 'workspace.json'
-        const content = await readFile('workspace.json');
+        // This relies on rootPath being set in fileSystem.ts
+        const content = await readFile('workspace.json'); 
         const data = JSON.parse(content);
-        
-        // Restore folder structure
         if (data.folders) {
+            console.log("Workspace loaded:", data.folders);
             folderList = data.folders;
-            return;
         }
     } catch (e) {
-        console.log("No workspace.json found, creating default view.");
+        console.log("No workspace.json or load failed. Creating default.");
+        await refreshFileList();
     }
-
-    // Fallback: Scan directory and create default view
-    await refreshFileList();
 }
 
 export async function refreshFileList() {
@@ -99,16 +95,19 @@ export async function refreshFileList() {
 }
 
 async function saveStructure() {
-    if (!rootFolderName) return;
+    // We don't need to check rootFolderName here if fileSystem handles the path
+    // But keeping a check is fine.
 
     const structure = {
         version: 1,
         updatedAt: new Date().toISOString(),
-        folders: folderList // We save the whole object, including expanded state
+        folders: folderList
     };
 
     try {
-        await writeFile('workspace.json', JSON.stringify(structure, null, 2));
+        // Use the new helper that knows the absolute path!
+        await saveWorkspaceFile(structure);
+        console.log("Workspace structure saved.");
     } catch (e) {
         console.error("Failed to save workspace structure:", e);
     }
@@ -131,5 +130,26 @@ export async function renameItem(folderId: string, oldName: string, newName: str
     } catch (e) {
         alert("Failed to rename file. Check console for details.");
         // Revert UI if needed (by reloading list) or let the UI stay stale
+    }
+}
+
+export async function deleteNote(folderId: string, fileName: string) {
+    const folder = folderList.find(f => f.id === folderId);
+    if (!folder) return;
+
+    if (!confirm(`Are you sure you want to delete "${fileName}" and its PDF?`)) return;
+
+    try {
+        // 1. Delete from Disk
+        await deleteFile(fileName);
+
+        // 2. Update State
+        folder.files = folder.files.filter(f => f.name !== fileName);
+        
+        // 3. Persist Structure
+        saveStructure();
+    } catch (e) {
+        alert("Failed to delete file from disk.");
+        console.error(e);
     }
 }
