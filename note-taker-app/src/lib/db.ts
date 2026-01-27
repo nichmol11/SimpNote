@@ -1,49 +1,21 @@
 // src/lib/db.ts
+// Minimal Dexie database for persisting the last selected directory path
 import Dexie, { type Table } from 'dexie';
-
-export interface PDFDocument {
-    id?: number;
-    fileName: string;
-    pdfData: ArrayBuffer;
-    uploadedAt: Date;
-    lastModified: Date;
-}
-
-export interface PageNote {
-    id?: number;
-    documentId: number;
-    pageNumber: number;
-    note: string;
-}
 
 export interface DirectoryMeta {
     id?: number;
-    handle: string; // Updated: Now stores the absolute path string
-    name: string;
+    handle: string; // Absolute path string to the selected directory
+    name: string;   // Display name (folder name)
 }
 
 export class AppDatabase extends Dexie {
-    documents!: Table<PDFDocument>;
-    pageNotes!: Table<PageNote>;
     directoryMeta!: Table<DirectoryMeta>;
 
     constructor() {
         super('PDFNotesDB');
-        
-        // Version 1: Initial schema
-        this.version(1).stores({
-            documents: '++id, fileName, uploadedAt',
-            pageNotes: '++id, documentId, pageNumber'
-        });
 
-        // Version 2: Added directoryMeta (using old handle type)
-        this.version(2).stores({
-            directoryMeta: '++id'
-        });
-
-        // Version 3: Migrating directoryMeta to use string paths
-        // We keep the table definition the same, but bumping version ensures
-        // any schema caching issues are cleared.
+        // Version 3: Only directoryMeta table
+        // (Versions 1-2 had unused documents/pageNotes tables, now removed)
         this.version(3).stores({
             directoryMeta: '++id'
         });

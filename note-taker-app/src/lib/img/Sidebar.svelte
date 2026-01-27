@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    import { openDirectory, restoreDirectory, loadNote } from '$lib/fileSystem';
+    import { openDirectory, restoreDirectory } from '$lib/fileSystem';
     import { 
         getFolderList, 
         setFolderList, 
@@ -258,7 +258,16 @@
                                     handleDragStart(e, folder.id, j);
                                 }}
                             >
-                                <button type="button" title="Open Note" class="file-open-btn" onclick={() => loadNote(file.name)}>📄</button>
+                                <button type="button" title="Open Note" class="file-open-btn" onclick={() => {
+                                    console.log("File button clicked:", file.name);
+                                    const loadFn = navbarContext?.getLoadNote?.();
+                                    console.log("loadFn:", loadFn);
+                                    if (loadFn) {
+                                        loadFn(file.name).catch((e: Error) => console.error("Load failed:", e));
+                                    } else {
+                                        console.error("No loadNote function in context");
+                                    }
+                                }}>📄</button>
                                 <input 
                                     type="text"
                                     value={file.name.replace(/\.json$/i, '')} 

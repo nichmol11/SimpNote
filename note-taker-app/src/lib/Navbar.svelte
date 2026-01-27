@@ -1,27 +1,17 @@
 <script lang="ts">
     // Define props
-    // Updated onUpload signature: No longer needs Event as we use Tauri dialog
-    export let onUpload: () => void; 
+    export let onUpload: () => void;
     export let onRemove: () => void;
     export let toggleSidebar: () => void;
     export let onSave: () => void;
-    
-    let currentFileName: string = "No PDF selected";
+    export let isSaving: boolean = false;
+    export let currentFileName: string = "No PDF selected";
 
-    // Allow parent to update filename (optional helper if you bind to this component)
-    // But mostly we just track state here for display. 
-    // Ideally pass currentFileName as a prop from parent for true reactivity.
-    
     function handleUploadClick() {
-        // Trigger the parent's handler which opens the Tauri dialog
         onUpload();
-        // Note: Filename update happens via reactivity or we can set it here if we knew it immediately,
-        // but since it's async, we usually wait for parent to pass it back.
-        // For now, we assume parent handles logic.
     }
-    
+
     function removePDF() {
-        currentFileName = "No PDF selected";
         onRemove();
     }
 </script>
@@ -51,6 +41,9 @@
         </div>
         
         <div class="navigation-options">
+            {#if isSaving}
+                <span class="save-indicator">Saving...</span>
+            {/if}
             <button type="button" class="save-btn" on:click={onSave} title="Save notes">
                 <img src="src/lib/img/save-icon.svg" alt="save button"/>
             </button>
@@ -163,5 +156,20 @@
     #sidebar-toggle img {
         height: 40px;
         cursor: pointer;
+    }
+
+    .save-indicator {
+        position: absolute;
+        right: 70px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 12px;
+        color: #666;
+        animation: pulse 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
     }
 </style>

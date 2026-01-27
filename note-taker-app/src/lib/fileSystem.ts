@@ -15,6 +15,11 @@ import { open } from '@tauri-apps/plugin-dialog';
 // In Tauri, we just store the absolute path string
 let rootPath: string | null = null;
 
+// Get the current workspace path (for file picker default)
+export function getWorkspacePath(): string | null {
+    return rootPath;
+}
+
 // --- Folder Management ---
 
 export async function openDirectory() {
@@ -133,17 +138,28 @@ export async function readFile(filename: string) {
 // NEW: Import PDF directly from another location on disk
 export async function importPdfFromPath(sourcePath: string) {
     if (!rootPath) throw new Error("No folder selected");
-    
+
     // Extract filename from source path
     const fileName = sourcePath.split(/[/\\]/).pop() || "document.pdf";
     const destPath = joinPath(fileName);
-    
+
     try {
-        // Direct copy (Efficient)
-        await copyFile(sourcePath, destPath);
+        // Manual copy: read source file as binary, write to destination
+        // (copyFile seems broken on NixOS)
+        console.log("Reading PDF from:", sourcePath);
+        const pdfData = await readBinaryFile(sourcePath);
+        console.log("PDF size:", pdfData.byteLength, "bytes");
+
+        if (pdfData.byteLength === 0) {
+            throw new Error("Source PDF is empty");
+        }
+
+        console.log("Writing PDF to:", destPath);
+        await writeBinaryFile(destPath, pdfData);
+        console.log("PDF copied successfully");
     } catch (e) {
         console.error("Copy failed:", e);
-        throw new Error(`Failed to copy PDF from ${sourcePath}`);
+        throw new Error(`Failed to copy PDF from ${sourcePath}: ${e}`);
     }
     
     // Create initial JSON metadata

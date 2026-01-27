@@ -5,12 +5,15 @@
 	import { setContext } from 'svelte';
 
 	const { children } = $props();
-	
+
 	let isSidebarOpen = $state(true);
-	let onUpload = $state<(e: Event) => void>(() => {});
+	let isSaving = $state(false);
+	let currentFileName = $state("No PDF selected");
+	let onUpload = $state<() => void>(() => {});
 	let onRemove = $state<() => void>(() => {});
 	let refreshSidebar = $state<() => void>(() => {});
-	
+	let onLoadNote = $state<(jsonName: string) => Promise<void>>(async () => {});
+
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
@@ -19,7 +22,7 @@
 
 	setContext('navbar', {
 		setHandlers: (
-			uploadHandler: (e: Event) => void, 
+			uploadHandler: () => void,
 			removeHandler: () => void,
 			saveHandler: () => void
 		) => {
@@ -30,11 +33,21 @@
 		setRefreshSidebar: (refreshFn: () => void) => {
 			refreshSidebar = refreshFn;
 		},
-		getRefreshSidebar: () => refreshSidebar
+		getRefreshSidebar: () => refreshSidebar,
+		setIsSaving: (saving: boolean) => {
+			isSaving = saving;
+		},
+		setLoadNote: (loadFn: (jsonName: string) => Promise<void>) => {
+			onLoadNote = loadFn;
+		},
+		getLoadNote: () => onLoadNote,
+		setCurrentFileName: (name: string) => {
+			currentFileName = name;
+		}
 	});
 
 </script>
 
-<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} />
+<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} {isSaving} {currentFileName} />
 <Sidebar {isSidebarOpen} {toggleSidebar} />
 {@render children()}

@@ -3,6 +3,7 @@
 	"version": "0.0.1",
 	"scripts": {
 		"dev": "vite dev",
+		"tauri": "tauri",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -74,6 +75,7 @@
 		"@tauri-apps/plugin-dialog": "^2.6.0",
 		"@tauri-apps/plugin-fs": "^2.4.5",
 		"dexie": "^4.2.1",
+		"marked": "^17.0.0",
 		"pdfjs-dist": "^5.4.530",
 		"tauri": "^0.15.0"
 	}

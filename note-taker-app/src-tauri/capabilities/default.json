@@ -10,17 +10,19 @@
     "fs:default",
     "fs:allow-read-text-file",
     "fs:allow-write-text-file",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
     "fs:allow-read-dir",
     "fs:allow-exists",
     "fs:allow-remove",
     "fs:allow-rename",
-    "fs:allow-copy-file",      
+    "fs:allow-copy-file",
     "dialog:default",
     "dialog:allow-open",
     "dialog:allow-save",
     {
       "identifier": "fs:scope",
-      "allow": ["$HOME/**", "$APPDATA/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$DESKTOP/**"]
+      "allow": ["$HOME/**", "$APPDATA/**", "$DOCUMENT/**", "$DOWNLOAD/**", "$DESKTOP/**", "/**"]
     }
   ]
 }

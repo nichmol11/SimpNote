@@ -2,7 +2,7 @@
     import * as pdfjs from 'pdfjs-dist';
     import PageRow from '$lib/PageRow.svelte';
     import { getContext, onMount } from 'svelte';
-    import { saveNote, importPdfFromPath, loadNote } from '$lib/fileSystem'; 
+    import { saveNote, importPdfFromPath, loadNote, getWorkspacePath } from '$lib/fileSystem'; 
     import { open } from '@tauri-apps/plugin-dialog';
 
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
@@ -15,13 +15,64 @@
     let pages = $state<{ id: number; note: string; pageProxy: pdfjs.PDFPageProxy }[]>([]);
     let currentFileName = $state<string>("");
     let isNoteLoaded = $state(false);
+    let hasBeenSaved = $state(false);
+    let isSaving = $state(false);
+    let autosaveTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Debounced autosave - triggers 2 seconds after last note change
+    function scheduleAutosave() {
+        if (!hasBeenSaved || !isNoteLoaded) return;
+
+        if (autosaveTimeout) {
+            clearTimeout(autosaveTimeout);
+        }
+
+        autosaveTimeout = setTimeout(async () => {
+            await performSave(true);
+        }, 2000);
+    }
+
+    // Core save logic (used by both manual save and autosave)
+    async function performSave(isAutosave: boolean = false) {
+        if (!isNoteLoaded || !currentFileName) return;
+
+        const baseName = currentFileName.replace(/\.pdf$/i, '');
+        const notesObject: Record<number, string> = {};
+
+        pages.forEach(p => {
+            if (p.note && p.note.trim().length > 0) {
+                notesObject[p.id] = p.note;
+            }
+        });
+
+        try {
+            isSaving = true;
+            navbarContext?.setIsSaving?.(true);
+            await saveNote(baseName, null, notesObject);
+            if (!isAutosave) {
+                hasBeenSaved = true;
+            }
+        } catch (e) {
+            console.error("Save failed:", e);
+            if (!isAutosave) {
+                alert("Failed to save notes.");
+            }
+        } finally {
+            isSaving = false;
+            navbarContext?.setIsSaving?.(false);
+        }
+    }
 
     // 1. Handle New PDF Import (Tauri Dialog)
     async function handleFileSelected() {
         try {
+            // Default to workspace folder if set
+            const workspacePath = getWorkspacePath();
+
             const selected = await open({
                 multiple: false,
-                filters: [{ name: 'PDF', extensions: ['pdf'] }]
+                filters: [{ name: 'PDF', extensions: ['pdf'] }],
+                defaultPath: workspacePath || undefined
             });
 
             if (selected) {
@@ -46,13 +97,21 @@
 
     // Helper to load project data into state
     async function loadNoteData(jsonName: string) {
+        console.log("loadNoteData called with:", jsonName);
         try {
             const project = await loadNote(jsonName);
+            console.log("Project loaded:", project.fileName);
             currentFileName = project.fileName;
-            
+
+            // Update navbar display
+            navbarContext?.setCurrentFileName?.(project.fileName);
+
             // Render PDF
             await renderPDF(project.pdfData, project.notes);
             isNoteLoaded = true;
+
+            // Enable autosave for existing projects (they already have a save location)
+            hasBeenSaved = true;
         } catch (e) {
             console.error("Load failed:", e);
         }
@@ -77,43 +136,53 @@
         pages = loadedPages;
     }
 
-    // 3. Handle Save
+    // 3. Handle Manual Save
     async function handleSave() {
         if (!isNoteLoaded || !currentFileName) {
             alert("No project loaded to save.");
             return;
         }
 
-        const baseName = currentFileName.replace(/\.pdf$/i, '');
-        const notesObject: Record<number, string> = {};
-        
-        pages.forEach(p => {
-            if (p.note && p.note.trim().length > 0) {
-                notesObject[p.id] = p.note;
-            }
-        });
-
-        try {
-            // Pass null for PDF data because we already copied the file during import!
-            // We only need to save the updated JSON notes.
-            await saveNote(baseName, null, notesObject);
-            alert(`Notes saved!`);
-        } catch (e) {
-            console.error("Save failed:", e);
-            alert("Failed to save notes.");
+        await performSave(false);
+        if (hasBeenSaved) {
+            alert("Notes saved! Autosave is now enabled.");
         }
     }
 
+    // 4. Watch for note changes and trigger autosave
+    // Uses $effect to track changes to the pages array (deeply reactive)
+    $effect(() => {
+        // Read pages to establish dependency - this tracks all note changes
+        const noteSnapshot = pages.map(p => p.note).join('');
+
+        // Only schedule autosave if we have content and have saved before
+        if (noteSnapshot && hasBeenSaved) {
+            scheduleAutosave();
+        }
+    });
+
     function handleRemovePDF() {
+        // Clear any pending autosave
+        if (autosaveTimeout) {
+            clearTimeout(autosaveTimeout);
+            autosaveTimeout = null;
+        }
+
         pages = [];
         currentFileName = "";
         isNoteLoaded = false;
+        hasBeenSaved = false;
+
+        // Update navbar display
+        navbarContext?.setCurrentFileName?.("No PDF selected");
     }
 
     onMount(() => {
         if (navbarContext) {
             // Updated: handleFileSelected no longer takes an event, it triggers the dialog itself
             navbarContext.setHandlers(handleFileSelected, handleRemovePDF, handleSave);
+            // Register loadNoteData so Sidebar can open notes
+            navbarContext.setLoadNote(loadNoteData);
         }
     });
 </script>
