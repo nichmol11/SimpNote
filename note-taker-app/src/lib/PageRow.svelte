@@ -7,25 +7,14 @@
     id: number;
     note: string;
     pageProxy: PDFPageProxy;
+    showMarkdown: boolean;
   }
 
-  let { id, note = $bindable(), pageProxy }: Props = $props();
+  let { id, note = $bindable(), pageProxy, showMarkdown }: Props = $props();
 
   let canvas: HTMLCanvasElement;
-  let pdfContainer: HTMLDivElement;
-  let showMarkdown = $state(false);
-
-  // Zoom and pan state
-  let zoom = $state(1);
-  let panX = $state(0);
-  let panY = $state(0);
-  let isPanning = $state(false);
-  let lastMouseX = 0;
-  let lastMouseY = 0;
-
-  const MIN_ZOOM = 0.5;
-  const MAX_ZOOM = 3;
-  const ZOOM_STEP = 0.25;
+  let displayWidth = $state(550);
+  let displayHeight = $state(720);
 
   // Configure marked for GFM (tables, etc.)
   marked.setOptions({
@@ -37,54 +26,6 @@
   function renderMarkdown(text: string): string {
     if (!text) return '';
     return marked.parse(text) as string;
-  }
-
-  // Zoom controls
-  function zoomIn() {
-    zoom = Math.min(MAX_ZOOM, zoom + ZOOM_STEP);
-  }
-
-  function zoomOut() {
-    zoom = Math.max(MIN_ZOOM, zoom - ZOOM_STEP);
-    // Reset pan if zooming out to 1x or below
-    if (zoom <= 1) {
-      panX = 0;
-      panY = 0;
-    }
-  }
-
-  function resetZoom() {
-    zoom = 1;
-    panX = 0;
-    panY = 0;
-  }
-
-  // Pan handlers
-  function handleMouseDown(e: MouseEvent) {
-    if (zoom > 1) {
-      isPanning = true;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-      pdfContainer.style.cursor = 'grabbing';
-    }
-  }
-
-  function handleMouseMove(e: MouseEvent) {
-    if (isPanning) {
-      const deltaX = e.clientX - lastMouseX;
-      const deltaY = e.clientY - lastMouseY;
-      panX += deltaX;
-      panY += deltaY;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    }
-  }
-
-  function handleMouseUp() {
-    isPanning = false;
-    if (pdfContainer) {
-      pdfContainer.style.cursor = zoom > 1 ? 'grab' : 'default';
-    }
   }
 
   onMount(() => {
@@ -104,6 +45,8 @@
 
     const viewport = pageProxy.getViewport({ scale: renderScale });
     const context = canvas.getContext('2d');
+    displayWidth = viewport.width / pixelRatio;
+    displayHeight = viewport.height / pixelRatio;
 
     if (context) {
       // Set canvas internal resolution (high res for crisp rendering)
@@ -116,6 +59,7 @@
 
       // 2. Render PDF Page to Canvas
       const renderContext = {
+        canvas,
         canvasContext: context,
         viewport: viewport
       };
@@ -127,42 +71,16 @@
 
 <section class="page-row">
   <div class="pdf-viewer">
-    <div class="zoom-controls">
-      <button on:click={zoomOut} title="Zoom out" disabled={zoom <= MIN_ZOOM}>−</button>
-      <span class="zoom-level">{Math.round(zoom * 100)}%</span>
-      <button on:click={zoomIn} title="Zoom in" disabled={zoom >= MAX_ZOOM}>+</button>
-      <button on:click={resetZoom} title="Reset zoom" class="reset-btn">Reset</button>
-    </div>
     <div
       class="pdf-container"
-      bind:this={pdfContainer}
-      on:mousedown={handleMouseDown}
-      on:mousemove={handleMouseMove}
-      on:mouseup={handleMouseUp}
-      on:mouseleave={handleMouseUp}
-      style="cursor: {zoom > 1 ? 'grab' : 'default'};"
       role="img"
       aria-label="PDF page {id}"
     >
-      <canvas
-        bind:this={canvas}
-        style="transform: scale({zoom}) translate({panX / zoom}px, {panY / zoom}px); transform-origin: center center;"
-      ></canvas>
+      <canvas bind:this={canvas}></canvas>
     </div>
   </div>
 
-  <div class="editor">
-    <div class="editor-header">
-      <span class="page-label">Page {id}</span>
-      <button
-        class="toggle-btn"
-        class:active={showMarkdown}
-        on:click={() => showMarkdown = !showMarkdown}
-        title={showMarkdown ? "Edit markdown" : "Preview markdown"}
-      >
-        {showMarkdown ? "Edit" : "Preview"}
-      </button>
-    </div>
+  <div class="editor" style:width={`${displayWidth}px`} style:min-height={`${displayHeight}px`}>
     {#if showMarkdown}
       <div class="markdown-preview">
         {@html renderMarkdown(note)}
@@ -180,6 +98,7 @@
     gap: 30px; 
     margin-bottom: 50px; 
     justify-content: center;
+    align-items: flex-start;
     /* background-color: #fafafa; */
   }
   .pdf-viewer {
@@ -189,109 +108,34 @@
     flex-direction: column;
   }
 
-  .zoom-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
-    justify-content: center;
-  }
-
-  .zoom-controls button {
-    width: 28px;
-    height: 28px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #f5f5f5;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .zoom-controls button:hover:not(:disabled) {
-    background: #e5e5e5;
-  }
-
-  .zoom-controls button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .zoom-controls .reset-btn {
-    width: auto;
-    padding: 0 10px;
-    font-size: 12px;
-  }
-
-  .zoom-level {
-    font-size: 12px;
-    color: #666;
-    min-width: 45px;
-    text-align: center;
-  }
-
   .pdf-container {
-    overflow: auto;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f0f0f0;
-    max-height: 80vh;
+    display: inline-block;
+    width: fit-content;
+    height: fit-content;
+    margin: 0 auto;
+    padding: 0;
+    line-height: 0;
+    overflow: hidden;
+    border: 1px solid #cfcfcf;
+    border-radius: 2px;
+    background: transparent;
   }
 
   canvas {
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    border-radius: 4px;
-    transition: transform 0.1s ease-out;
+    display: block;
+    border-radius: 0;
     /* Don't use max-width: 100% as it breaks aspect ratio */
   }
   .editor {
-    flex: 1;
-    max-width: 600px;
     display: flex;
     flex-direction: column;
   }
 
-  .editor-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-
-  .page-label {
-    font-size: 14px;
-    color: #666;
-    font-weight: 500;
-  }
-
-  .toggle-btn {
-    padding: 4px 12px;
-    font-size: 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #f5f5f5;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .toggle-btn:hover {
-    background: #e5e5e5;
-  }
-
-  .toggle-btn.active {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-  }
-
   textarea {
     width: 100%;
-    min-height: 400px;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
     padding: 15px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -302,7 +146,9 @@
 
   .markdown-preview {
     width: 100%;
-    min-height: 400px;
+    height: 100%;
+    min-height: 100%;
+    box-sizing: border-box;
     padding: 15px;
     border: 1px solid #ccc;
     border-radius: 4px;

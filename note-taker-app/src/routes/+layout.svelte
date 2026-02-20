@@ -8,6 +8,7 @@
 
 	let isSidebarOpen = $state(true);
 	let isSaving = $state(false);
+	let hasAutosaveEnabled = $state(false);
 	let currentFileName = $state("No PDF selected");
 	let onUpload = $state<() => void>(() => {});
 	let onRemove = $state<() => void>(() => {});
@@ -37,6 +38,9 @@
 		setIsSaving: (saving: boolean) => {
 			isSaving = saving;
 		},
+		setHasAutosaveEnabled: (enabled: boolean) => {
+			hasAutosaveEnabled = enabled;
+		},
 		setLoadNote: (loadFn: (jsonName: string) => Promise<void>) => {
 			onLoadNote = loadFn;
 		},
@@ -48,6 +52,25 @@
 
 </script>
 
-<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} {isSaving} {currentFileName} />
+<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
 <Sidebar {isSidebarOpen} {toggleSidebar} />
-{@render children()}
+<main class="app-main" class:sidebar-open={isSidebarOpen}>
+	{@render children()}
+</main>
+
+<style>
+	:global(:root) {
+		--sidebar-width: 300px;
+	}
+
+	.app-main {
+		margin-left: 0;
+		width: 100%;
+		transition: margin-left 0.3s ease, width 0.3s ease;
+	}
+
+	.app-main.sidebar-open {
+		margin-left: var(--sidebar-width);
+		width: calc(100% - var(--sidebar-width));
+	}
+</style>

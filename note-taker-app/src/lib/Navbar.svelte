@@ -5,6 +5,7 @@
     export let toggleSidebar: () => void;
     export let onSave: () => void;
     export let isSaving: boolean = false;
+    export let hasAutosaveEnabled: boolean = false;
     export let currentFileName: string = "No PDF selected";
 
     function handleUploadClick() {
@@ -36,7 +37,13 @@
             <span class="file-name">{currentFileName}</span>
             
             {#if currentFileName !== "No PDF selected"}
-                <button class="remove-btn" on:click={removePDF}>Remove PDF</button>
+                <button class="remove-btn" on:click={removePDF}>
+                    {#if hasAutosaveEnabled}
+                        Close note
+                    {:else}
+                        Remove PDF
+                    {/if}
+                </button>
             {/if}
         </div>
         
@@ -44,8 +51,17 @@
             {#if isSaving}
                 <span class="save-indicator">Saving...</span>
             {/if}
-            <button type="button" class="save-btn" on:click={onSave} title="Save notes">
-                <img src="src/lib/img/save-icon.svg" alt="save button"/>
+            <button
+                type="button"
+                class="save-btn"
+                class:autosave-enabled={hasAutosaveEnabled}
+                on:click={onSave}
+                title={hasAutosaveEnabled ? "Autosave enabled" : "Save notes"}
+            >
+                <img
+                    src={hasAutosaveEnabled ? "src/lib/img/save-enabled-icon.svg" : "src/lib/img/save-icon.svg"}
+                    alt={hasAutosaveEnabled ? "autosave enabled" : "save button"}
+                />
             </button>
         </div>
     </div>
@@ -143,6 +159,10 @@
         position: absolute;
         right: 20px;
         top: 10px;
+    }
+
+    .save-btn.autosave-enabled img {
+        transform: scale(0.95);
     }
 
 

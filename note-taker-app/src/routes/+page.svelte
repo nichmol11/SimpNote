@@ -13,11 +13,19 @@
 
     // State
     let pages = $state<{ id: number; note: string; pageProxy: pdfjs.PDFPageProxy }[]>([]);
-    let currentFileName = $state<string>("");
+    let currentPdfFileName = $state<string>("");
+    let currentNoteName = $state<string>("");
     let isNoteLoaded = $state(false);
     let hasBeenSaved = $state(false);
     let isSaving = $state(false);
+    let globalZoom = $state(1);
+    let showMarkdownAll = $state(false);
     let autosaveTimeout: ReturnType<typeof setTimeout> | null = null;
+    let contentElement: HTMLDivElement;
+
+    const MIN_GLOBAL_ZOOM = 0.6;
+    const MAX_GLOBAL_ZOOM = 2.5;
+    const GLOBAL_ZOOM_STEP = 0.1;
 
     // Debounced autosave - triggers 2 seconds after last note change
     function scheduleAutosave() {
@@ -34,9 +42,9 @@
 
     // Core save logic (used by both manual save and autosave)
     async function performSave(isAutosave: boolean = false) {
-        if (!isNoteLoaded || !currentFileName) return;
+        if (!isNoteLoaded || !currentNoteName || !currentPdfFileName) return;
 
-        const baseName = currentFileName.replace(/\.pdf$/i, '');
+        const baseName = currentNoteName.replace(/\.json$/i, '');
         const notesObject: Record<number, string> = {};
 
         pages.forEach(p => {
@@ -51,6 +59,7 @@
             await saveNote(baseName, null, notesObject);
             if (!isAutosave) {
                 hasBeenSaved = true;
+                navbarContext?.setHasAutosaveEnabled?.(true);
             }
         } catch (e) {
             console.error("Save failed:", e);
@@ -81,7 +90,7 @@
                 const jsonName = await importPdfFromPath(sourcePath);
                 
                 // Immediately load the new project
-                await loadNoteData(jsonName);
+                await loadNoteData(jsonName, false);
                 
                 // Refresh sidebar
                 if (navbarContext && navbarContext.getRefreshSidebar) {
@@ -96,22 +105,24 @@
     }
 
     // Helper to load project data into state
-    async function loadNoteData(jsonName: string) {
+    async function loadNoteData(jsonName: string, isExistingSavedNote: boolean = true) {
         console.log("loadNoteData called with:", jsonName);
         try {
             const project = await loadNote(jsonName);
             console.log("Project loaded:", project.fileName);
-            currentFileName = project.fileName;
+            currentPdfFileName = project.fileName;
+            currentNoteName = jsonName.replace(/\.json$/i, '');
 
             // Update navbar display
-            navbarContext?.setCurrentFileName?.(project.fileName);
+            navbarContext?.setCurrentFileName?.(currentNoteName);
 
             // Render PDF
             await renderPDF(project.pdfData, project.notes);
             isNoteLoaded = true;
 
-            // Enable autosave for existing projects (they already have a save location)
-            hasBeenSaved = true;
+            // Existing notes load with autosave enabled; newly imported notes require first manual save.
+            hasBeenSaved = isExistingSavedNote;
+            navbarContext?.setHasAutosaveEnabled?.(isExistingSavedNote);
         } catch (e) {
             console.error("Load failed:", e);
         }
@@ -138,7 +149,7 @@
 
     // 3. Handle Manual Save
     async function handleSave() {
-        if (!isNoteLoaded || !currentFileName) {
+        if (!isNoteLoaded || !currentNoteName) {
             alert("No project loaded to save.");
             return;
         }
@@ -169,12 +180,30 @@
         }
 
         pages = [];
-        currentFileName = "";
+        currentPdfFileName = "";
+        currentNoteName = "";
         isNoteLoaded = false;
         hasBeenSaved = false;
 
         // Update navbar display
         navbarContext?.setCurrentFileName?.("No PDF selected");
+        navbarContext?.setHasAutosaveEnabled?.(false);
+    }
+
+    function setGlobalZoom(nextZoom: number) {
+        globalZoom = Math.min(MAX_GLOBAL_ZOOM, Math.max(MIN_GLOBAL_ZOOM, nextZoom));
+    }
+
+    function zoomInGlobal() {
+        setGlobalZoom(globalZoom + GLOBAL_ZOOM_STEP);
+    }
+
+    function zoomOutGlobal() {
+        setGlobalZoom(globalZoom - GLOBAL_ZOOM_STEP);
+    }
+
+    function toggleGlobalPreview() {
+        showMarkdownAll = !showMarkdownAll;
     }
 
     onMount(() => {
@@ -184,15 +213,54 @@
             // Register loadNoteData so Sidebar can open notes
             navbarContext.setLoadNote(loadNoteData);
         }
+
+        const handleGlobalZoomWheel = (event: WheelEvent) => {
+            if (!event.ctrlKey) return;
+
+            const targetNode = event.target as Node | null;
+            if (contentElement && targetNode && !contentElement.contains(targetNode)) {
+                return;
+            }
+
+            event.preventDefault();
+            if (event.deltaY < 0) {
+                zoomInGlobal();
+            } else {
+                zoomOutGlobal();
+            }
+        };
+
+        window.addEventListener('wheel', handleGlobalZoomWheel, { passive: false });
+        return () => {
+            window.removeEventListener('wheel', handleGlobalZoomWheel);
+        };
     });
 </script>
 
-<div id="content">
+<div id="content" bind:this={contentElement}>
+    {#if pages.length > 0}
+        <div class="global-zoom-controls">
+            <button type="button" onclick={zoomOutGlobal} title="Zoom out" disabled={globalZoom <= MIN_GLOBAL_ZOOM}>−</button>
+            <span>{Math.round(globalZoom * 100)}%</span>
+            <button type="button" onclick={zoomInGlobal} title="Zoom in" disabled={globalZoom >= MAX_GLOBAL_ZOOM}>+</button>
+            <button
+                type="button"
+                class="preview-toggle-btn"
+                onclick={toggleGlobalPreview}
+                title={showMarkdownAll ? "Switch all notes to edit mode" : "Preview all notes as markdown"}
+            >
+                {showMarkdownAll ? "✏️" : "📖"}
+            </button>
+        </div>
+    {/if}
+
+    <div class="zoom-surface" style:zoom={globalZoom}>
     {#each pages as item (item.id)} 
         <PageRow 
             id={item.id} 
             bind:note={item.note} 
             pageProxy={item.pageProxy} 
+            showMarkdown={showMarkdownAll}
         />
     {:else}
         <div class="placeholder">
@@ -200,6 +268,7 @@
             <p class="sub-text">Import a PDF or open a project from the sidebar.</p>
         </div>
     {/each}
+    </div>
 </div>
 
 <style>
@@ -207,7 +276,65 @@
         margin-top: 80px;
         padding: 20px;
         min-height: calc(100vh - 80px);
+        position: relative;
     }
+
+    .zoom-surface {
+        transform-origin: top center;
+    }
+
+    .global-zoom-controls {
+        position: fixed;
+        right: 28px;
+        top: 88px;
+        z-index: 120;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #d6d6d6;
+        border-radius: 10px;
+        padding: 6px 10px;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+    }
+
+    .global-zoom-controls button {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #c6c6c6;
+        border-radius: 6px;
+        background: #f5f7fb;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .global-zoom-controls button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .global-zoom-controls span {
+        min-width: 52px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: #36414d;
+    }
+
+    .preview-toggle-btn {
+        height: 30px;
+        border: 1px solid #c6c6c6;
+        border-radius: 6px;
+        background: #f5f7fb;
+        justify-content: center;
+        cursor: pointer;
+        padding-bottom: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #36414d;
+    }
+
     .placeholder {
         text-align: center;
         color: #666;
