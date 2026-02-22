@@ -1,4 +1,7 @@
 <script lang="ts">
+    import { getCurrentWindow } from '@tauri-apps/api/window';
+    import { onMount } from 'svelte';
+
     // Define props
     export let onUpload: () => void;
     export let onRemove: () => void;
@@ -7,6 +10,7 @@
     export let isSaving: boolean = false;
     export let hasAutosaveEnabled: boolean = false;
     export let currentFileName: string = "No PDF selected";
+    let isWindowMaximized = false;
 
     function handleUploadClick() {
         onUpload();
@@ -15,18 +19,71 @@
     function removePDF() {
         onRemove();
     }
+
+    async function minimizeWindow() {
+        try {
+            await getCurrentWindow().minimize();
+        } catch (error) {
+            console.error('Failed to minimize window:', error);
+        }
+    }
+
+    async function toggleMaximizeWindow() {
+        try {
+            const window = getCurrentWindow();
+            await window.toggleMaximize();
+            isWindowMaximized = await window.isMaximized();
+        } catch (error) {
+            console.error('Failed to maximize/restore window:', error);
+        }
+    }
+
+    async function closeWindow() {
+        try {
+            await getCurrentWindow().close();
+        } catch (error) {
+            console.error('Failed to close window:', error);
+        }
+    }
+
+    onMount(() => {
+        const window = getCurrentWindow();
+
+        const updateWindowState = async () => {
+            try {
+                isWindowMaximized = await window.isMaximized();
+            } catch (error) {
+                console.error('Failed to read window maximized state:', error);
+            }
+        };
+
+        void updateWindowState();
+        let unlisten: (() => void) | undefined;
+        window.onResized(() => {
+            void updateWindowState();
+        }).then((dispose) => {
+            unlisten = dispose;
+        }).catch((error) => {
+            console.error('Failed to listen for window resize events:', error);
+        });
+
+        return () => {
+            unlisten?.();
+        };
+    });
 </script>
 
 
 <nav class="navbar">
-    <div class="nav-content">
-        <button id="sidebar-toggle" on:click={toggleSidebar} title="Toggle Sidebar">
+    <div class="nav-content" data-tauri-drag-region>
+        <button id="sidebar-toggle" data-tauri-drag-region="false" on:click={toggleSidebar} title="Toggle Sidebar">
             <img src="src/lib/img/sidebar-icon.svg" alt="sidebar button"/>
         </button>
         
         <span class="logo">PDF Notes</span>
+        <div class="drag-region"></div>
         
-        <div class="file-section">
+        <div class="file-section" data-tauri-drag-region="false">
             {#if currentFileName === "No PDF selected"}
                 <!-- Replaced <input> logic with direct button -->
                 <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
@@ -47,7 +104,7 @@
             {/if}
         </div>
         
-        <div class="navigation-options">
+        <div class="navigation-options" data-tauri-drag-region="false">
             {#if isSaving}
                 <span class="save-indicator">Saving...</span>
             {/if}
@@ -64,6 +121,19 @@
                 />
             </button>
         </div>
+
+        <div class="window-controls" aria-label="Window controls" data-tauri-drag-region="false">
+            <button type="button" class="window-btn" on:click={minimizeWindow} title="Minimize">−</button>
+            <button
+                type="button"
+                class="window-btn"
+                on:click={toggleMaximizeWindow}
+                title={isWindowMaximized ? "Restore" : "Maximize"}
+            >
+                {isWindowMaximized ? "❐" : "□"}
+            </button>
+            <button type="button" class="window-btn close" on:click={closeWindow} title="Close">×</button>
+        </div>
     </div>
 </nav>
 
@@ -72,7 +142,7 @@
     .navbar {
         top: 0;
         width: 100%;
-        height: 60px;
+        height: 50px;
         position: fixed;
         border-bottom: 1px solid #ddd;
         background-color: white;
@@ -82,6 +152,7 @@
     }
     
     .nav-content {
+        width: 100%;
         padding: 0 20px;
         display: flex;
         gap: 20px;
@@ -95,16 +166,22 @@
 
 
     .file-section {
-        margin-left: auto;
         display: flex;
         align-items: center;
         gap: 10px;
+    }
+
+    .drag-region {
+        flex: 1;
+        height: 100%;
+        min-width: 40px;
     }
     
     /* Removed #fileInput styles as it is deleted */
     
     .custom-upload-btn {
         display: inline-block;
+        height: 35px;
         padding: 8px 16px;
         background-color: #007bff;
         color: white;
@@ -134,6 +211,7 @@
     .remove-btn {
         padding: 8px 16px;
         background-color: #dc3545;
+        height: 35px;
         color: white;
         border: none;
         border-radius: 4px;
@@ -156,9 +234,6 @@
     .save-btn img {
         height: 40px;
         cursor: pointer;
-        position: absolute;
-        right: 20px;
-        top: 10px;
     }
 
     .save-btn.autosave-enabled img {
@@ -179,13 +254,48 @@
     }
 
     .save-indicator {
-        position: absolute;
-        right: 70px;
-        top: 50%;
-        transform: translateY(-50%);
         font-size: 12px;
         color: #666;
         animation: pulse 1s ease-in-out infinite;
+    }
+
+    .navigation-options {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height:100%;
+    }
+
+    .window-controls {
+        border-left: 1px solid #ddd;
+        height: 100%;
+        padding-left: 10px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .window-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+        color: #333;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .window-btn:hover {
+        background: #ececec;
+    }
+
+    .window-btn.close:hover {
+        background: #dc3545;
+        color: #fff;
+        border-color: #dc3545;
     }
 
     @keyframes pulse {
