@@ -15,10 +15,10 @@
         "title": "PDF Notes",
         "width": 800,
         "height": 600,
-        "decorations": false,
         "resizable": true,
         "fullscreen": false,
-        "devtools": true
+        "devtools": true,
+        "decorations": true
       }
     ],
     "security": {
