@@ -1,6 +1,10 @@
 <script lang="ts">
     import { getCurrentWindow } from '@tauri-apps/api/window';
     import { onMount } from 'svelte';
+    import sidebarIcon from '$lib/img/sidebar-icon.svg';
+    import appIcon from '$lib/img/icon_64x64.png';
+    import saveIcon from '$lib/img/save-icon.svg';
+    import saveEnabledIcon from '$lib/img/save-enabled-icon.svg';
 
     // Define props
     export let onUpload: () => void;
@@ -11,6 +15,7 @@
     export let hasAutosaveEnabled: boolean = false;
     export let currentFileName: string = "No PDF selected";
     let isWindowMaximized = false;
+    let isWindowFullscreen = false;
 
     function handleUploadClick() {
         onUpload();
@@ -20,19 +25,35 @@
         onRemove();
     }
 
-    async function minimizeWindow() {
+    async function updateWindowState() {
         try {
-            await getCurrentWindow().minimize();
+            const appWindow = getCurrentWindow();
+            isWindowMaximized = await appWindow.isMaximized();
+            isWindowFullscreen = await appWindow.isFullscreen();
         } catch (error) {
-            console.error('Failed to minimize window:', error);
+            console.error('Failed to update window state:', error);
+        }
+    }
+
+    async function handleMinimizeOrRestore() {
+        try {
+            const appWindow = getCurrentWindow();
+            if (isWindowFullscreen) {
+                await appWindow.setFullscreen(false);
+            } else {
+                await appWindow.minimize();
+            }
+            await updateWindowState();
+        } catch (error) {
+            console.error('Failed to minimize or restore window:', error);
         }
     }
 
     async function toggleMaximizeWindow() {
         try {
-            const window = getCurrentWindow();
-            await window.toggleMaximize();
-            isWindowMaximized = await window.isMaximized();
+            const appWindow = getCurrentWindow();
+            await appWindow.toggleMaximize();
+            await updateWindowState();
         } catch (error) {
             console.error('Failed to maximize/restore window:', error);
         }
@@ -47,28 +68,20 @@
     }
 
     onMount(() => {
-        const window = getCurrentWindow();
-
-        const updateWindowState = async () => {
-            try {
-                isWindowMaximized = await window.isMaximized();
-            } catch (error) {
-                console.error('Failed to read window maximized state:', error);
-            }
-        };
-
+        const appWindow = getCurrentWindow();
         void updateWindowState();
-        let unlisten: (() => void) | undefined;
-        window.onResized(() => {
+
+        let unlistenResize: (() => void) | undefined;
+        appWindow.onResized(() => {
             void updateWindowState();
         }).then((dispose) => {
-            unlisten = dispose;
+            unlistenResize = dispose;
         }).catch((error) => {
-            console.error('Failed to listen for window resize events:', error);
+            console.error('Failed to listen for resize events:', error);
         });
 
         return () => {
-            unlisten?.();
+            unlistenResize?.();
         };
     });
 </script>
@@ -77,15 +90,13 @@
 <nav class="navbar">
     <div class="nav-content" data-tauri-drag-region>
         <button id="sidebar-toggle" data-tauri-drag-region="false" on:click={toggleSidebar} title="Toggle Sidebar">
-            <img src="src/lib/img/sidebar-icon.svg" alt="sidebar button"/>
+            <img src={sidebarIcon} alt="sidebar button"/>
         </button>
         
-        <span class="logo">PDF Notes</span>
-        <div class="drag-region"></div>
+        <span class="logo"><img src={appIcon} alt="Note Taker App Logo"/></span>
         
         <div class="file-section" data-tauri-drag-region="false">
             {#if currentFileName === "No PDF selected"}
-                <!-- Replaced <input> logic with direct button -->
                 <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
             {:else}
                 <button class="custom-upload-btn disabled" disabled>Import PDF</button>
@@ -116,17 +127,26 @@
                 title={hasAutosaveEnabled ? "Autosave enabled" : "Save notes"}
             >
                 <img
-                    src={hasAutosaveEnabled ? "src/lib/img/save-enabled-icon.svg" : "src/lib/img/save-icon.svg"}
+                    src={hasAutosaveEnabled ? saveEnabledIcon : saveIcon}
                     alt={hasAutosaveEnabled ? "autosave enabled" : "save button"}
                 />
             </button>
         </div>
 
+        <div class="drag-region"></div>
+
         <div class="window-controls" aria-label="Window controls" data-tauri-drag-region="false">
-            <button type="button" class="window-btn" on:click={minimizeWindow} title="Minimize">−</button>
             <button
                 type="button"
-                class="window-btn"
+                class="window-btn utility"
+                on:click={handleMinimizeOrRestore}
+                title={isWindowFullscreen ? "Restore from fullscreen" : "Minimize"}
+            >
+                {isWindowFullscreen ? "❐" : "−"}
+            </button>
+            <button
+                type="button"
+                class="window-btn utility"
                 on:click={toggleMaximizeWindow}
                 title={isWindowMaximized ? "Restore" : "Maximize"}
             >
@@ -160,8 +180,11 @@
     }
     
     .logo {
-        padding-right: 20px;
         font-weight: bold; /* Moved from bottom rules for consistency */
+    }
+
+    .logo img {
+        height: 50px;
     }
 
 
@@ -204,7 +227,7 @@
     .file-name {
         font-size: 14px;
         color: #333;
-        min-width: 150px;
+        min-width: 250px;
         text-align: center;
     }
     
@@ -272,30 +295,35 @@
         padding-left: 10px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        gap: 8px;
     }
 
     .window-btn {
-        width: 30px;
-        height: 30px;
-        border-radius: 6px;
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        padding: 0;
+        border: none;
+        background: transparent;
         color: #333;
-        font-size: 18px;
+        font-size: 17px;
         line-height: 1;
+        border-radius: 8px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
     }
 
-    .window-btn:hover {
+    .window-btn.utility:hover {
         background: #ececec;
     }
 
     .window-btn.close:hover {
         background: #dc3545;
         color: #fff;
-        border-color: #dc3545;
     }
 
     @keyframes pulse {

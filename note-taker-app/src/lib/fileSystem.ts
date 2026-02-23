@@ -8,7 +8,7 @@ import {
     readDir, 
     remove, 
     rename,
-    copyFile 
+    exists
 } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 
@@ -119,6 +119,25 @@ function joinPath(filename: string): string {
     return `${rootPath}${separator}${filename}`;
 }
 
+function splitPdfBaseName(fileName: string) {
+    return fileName.replace(/\.pdf$/i, '');
+}
+
+async function getUniqueNoteBaseName(initialBaseName: string): Promise<string> {
+    if (!rootPath) throw new Error("No root path");
+
+    let counter = 0;
+    while (true) {
+        const candidate = counter === 0 ? initialBaseName : `${initialBaseName} (${counter})`;
+        const pdfExists = await exists(joinPath(`${candidate}.pdf`));
+        const jsonExists = await exists(joinPath(`${candidate}.json`));
+        if (!pdfExists && !jsonExists) {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
 export async function readFile(filename: string) {
     if (!rootPath) throw new Error('No folder selected');
     
@@ -140,8 +159,11 @@ export async function importPdfFromPath(sourcePath: string) {
     if (!rootPath) throw new Error("No folder selected");
 
     // Extract filename from source path
-    const fileName = sourcePath.split(/[/\\]/).pop() || "document.pdf";
-    const destPath = joinPath(fileName);
+    const originalFileName = sourcePath.split(/[/\\]/).pop() || "document.pdf";
+    const uniqueBaseName = await getUniqueNoteBaseName(splitPdfBaseName(originalFileName) || "document");
+    const localPdfName = `${uniqueBaseName}.pdf`;
+    const jsonName = `${uniqueBaseName}.json`;
+    const destPath = joinPath(localPdfName);
 
     try {
         // Manual copy: read source file as binary, write to destination
@@ -163,12 +185,9 @@ export async function importPdfFromPath(sourcePath: string) {
     }
     
     // Create initial JSON metadata
-    const baseName = fileName.replace(/\.pdf$/i, '');
-    const jsonName = `${baseName}.json`;
-    
     const noteData = {
         version: 1,
-        linkedPdf: fileName,
+        linkedPdf: localPdfName,
         updatedAt: new Date().toISOString(),
         pages: {} 
     };
@@ -196,22 +215,30 @@ export async function saveWorkspaceFile(data: any) {
     }
 }
 
-export async function saveNote(baseName: string, pdfData: ArrayBuffer | null, notes: Record<number, string>) {
+export async function saveNote(
+    baseName: string,
+    linkedPdf: string | null,
+    pdfData: ArrayBuffer | null,
+    notes: Record<number, string>
+) {
     if (!rootPath) throw new Error("No folder selected");
 
-    // 1. Save PDF (Only if strictly needed, e.g. modified in memory)
-    // In the new flow, we prefer copying, but we keep this for legacy or generated PDFs
+    // Keep a stable link to the workspace-local PDF whenever possible.
+    const linkedPdfName = linkedPdf
+        ? linkedPdf.split(/[/\\]/).pop() || `${baseName}.pdf`
+        : `${baseName}.pdf`;
+
+    // 1. Save PDF only if modified/given in memory.
     if (pdfData) {
-        const pdfName = `${baseName}.pdf`;
         const uint8Array = new Uint8Array(pdfData);
-        await writeBinaryFile(joinPath(pdfName), uint8Array);
+        await writeBinaryFile(joinPath(linkedPdfName), uint8Array);
     }
 
     // 2. Save Notes JSON
     const jsonName = `${baseName}.json`;
     const noteData = {
         version: 1,
-        linkedPdf: `${baseName}.pdf`,
+        linkedPdf: linkedPdfName,
         updatedAt: new Date().toISOString(),
         pages: notes 
     };

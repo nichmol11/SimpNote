@@ -86,7 +86,7 @@
         {@html renderMarkdown(note)}
       </div>
     {:else}
-      <textarea bind:value={note} placeholder="Notes for page {id}... (Markdown supported)"></textarea>
+      <textarea bind:value={note} placeholder="Notes for page {id}..."></textarea>
     {/if}
   </div>
 </section>

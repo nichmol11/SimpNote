@@ -13,6 +13,56 @@ interface FolderItem {
     expanded?: boolean; // Add expanded state here to persist it
 }
 
+function normalizeFileItem(raw: unknown): FileItem | null {
+    if (typeof raw === 'string') {
+        return {
+            name: raw,
+            kind: raw.endsWith('.json') ? 'project' : 'file'
+        };
+    }
+
+    if (!raw || typeof raw !== 'object') return null;
+
+    const candidate = raw as Partial<FileItem>;
+    if (typeof candidate.name !== 'string' || candidate.name.trim() === '') {
+        return null;
+    }
+
+    const inferredKind = candidate.name.endsWith('.json') ? 'project' : 'file';
+    return {
+        name: candidate.name,
+        kind: candidate.kind === 'project' || candidate.kind === 'file' ? candidate.kind : inferredKind
+    };
+}
+
+function normalizeFolderItem(raw: unknown, index: number): FolderItem | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const candidate = raw as Partial<FolderItem> & { files?: unknown[] };
+    if (typeof candidate.name !== 'string' || candidate.name.trim() === '') {
+        return null;
+    }
+
+    const rawFiles = Array.isArray(candidate.files) ? candidate.files : [];
+    const files = rawFiles.map(normalizeFileItem).filter((f): f is FileItem => f !== null);
+
+    return {
+        id: typeof candidate.id === 'string' && candidate.id.trim() !== ''
+            ? candidate.id
+            : `folder-${index}-${Math.random().toString(36).slice(2, 9)}`,
+        name: candidate.name,
+        files,
+        expanded: candidate.expanded === true
+    };
+}
+
+function normalizeFolderList(raw: unknown): FolderItem[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((folder, index) => normalizeFolderItem(folder, index))
+        .filter((f): f is FolderItem => f !== null);
+}
+
 // 1. Define the Global State
 let folderList = $state<FolderItem[]>([]); 
 let rootFolderName = $state<string>("");
@@ -33,7 +83,7 @@ export function setRootName(name: string) {
 }
 
 export function setFolderList(list: FolderItem[]) {
-    folderList = list;
+    folderList = normalizeFolderList(list);
     saveStructure(); // Auto-save whenever list is set manually
 }
 
@@ -68,8 +118,13 @@ export async function loadWorkspace() {
         const content = await readFile('workspace.json'); 
         const data = JSON.parse(content);
         if (data.folders) {
-            console.log("Workspace loaded:", data.folders);
-            folderList = data.folders;
+            const normalized = normalizeFolderList(data.folders);
+            console.log("Workspace loaded:", normalized);
+            folderList = normalized;
+            saveStructure();
+            if (folderList.length === 0) {
+                await refreshFileList();
+            }
         }
     } catch (e) {
         console.log("No workspace.json or load failed. Creating default.");

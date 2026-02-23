@@ -4,6 +4,7 @@
 	"scripts": {
 		"dev": "vite dev",
 		"tauri": "tauri",
+		"build:web": "vite build",
 		"build": "vite build && npm run prepack",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -39,6 +40,7 @@
 		"@eslint/compat": "^1.4.0",
 		"@eslint/js": "^9.39.1",
 		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.49.1",
 		"@sveltejs/package": "^2.5.7",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
@@ -72,6 +74,7 @@
 		"svelte"
 	],
 	"dependencies": {
+		"@tauri-apps/api": "2.9.1",
 		"@tauri-apps/plugin-dialog": "^2.6.0",
 		"@tauri-apps/plugin-fs": "^2.4.5",
 		"dexie": "^4.2.1",

@@ -56,7 +56,7 @@
         try {
             isSaving = true;
             navbarContext?.setIsSaving?.(true);
-            await saveNote(baseName, null, notesObject);
+            await saveNote(baseName, currentPdfFileName || null, null, notesObject);
             if (!isAutosave) {
                 hasBeenSaved = true;
                 navbarContext?.setHasAutosaveEnabled?.(true);
@@ -285,8 +285,8 @@
 
     .global-zoom-controls {
         position: fixed;
-        right: 28px;
-        top: 88px;
+        right: 20px;
+        bottom: 20px;
         z-index: 120;
         display: flex;
         align-items: center;
