@@ -100,7 +100,7 @@ export async function listFiles() {
         for (const entry of entries) {
             if (entry.isFile) {
                 if (entry.name == 'workspace.json') continue; // Skip workspace file
-                if (entry.name.endsWith('.json')) {
+                if (entry.name.endsWith('.json') || entry.name.endsWith('.md')) {
                     files.push({ name: entry.name, kind: 'file' });
                 }
             }
@@ -132,6 +132,21 @@ async function getUniqueNoteBaseName(initialBaseName: string): Promise<string> {
         const pdfExists = await exists(joinPath(`${candidate}.pdf`));
         const jsonExists = await exists(joinPath(`${candidate}.json`));
         if (!pdfExists && !jsonExists) {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+async function getUniqueMarkdownName(initialBaseName: string): Promise<string> {
+    if (!rootPath) throw new Error("No root path");
+
+    let counter = 0;
+    while (true) {
+        const candidateBase = counter === 0 ? initialBaseName : `${initialBaseName} (${counter})`;
+        const candidate = `${candidateBase}.md`;
+        const mdExists = await exists(joinPath(candidate));
+        if (!mdExists) {
             return candidate;
         }
         counter += 1;
@@ -204,6 +219,22 @@ export async function importPdfFromPath(sourcePath: string) {
     return jsonName; // Return the JSON filename so the app can load it
 }
 
+export async function createTextNote(initialBaseName: string = "Untitled Note") {
+    if (!rootPath) throw new Error("No folder selected");
+
+    const mdName = await getUniqueMarkdownName(initialBaseName);
+    await writeTextFile(joinPath(mdName), '');
+
+    addFileToFolder(mdName, "All Notes");
+    const currentList = getFolderList();
+    await writeTextFile(joinPath('workspace.json'), JSON.stringify({
+        version: 1,
+        folders: currentList
+    }, null, 2));
+
+    return mdName;
+}
+
 export async function saveWorkspaceFile(data: any) {
     if (!rootPath) return; // Silent return if no folder open
     
@@ -249,12 +280,27 @@ export async function saveNote(
     addFileToFolder(jsonName, "All Notes");
 }
 
+export async function saveTextNote(fileName: string, markdown: string) {
+    if (!rootPath) throw new Error("No folder selected");
+    await writeTextFile(joinPath(fileName), markdown);
+    addFileToFolder(fileName, "All Notes");
+}
+
 export async function loadNote(jsonFilename: string) {
     if (!rootPath) throw new Error("No folder selected");
     
     try {
         console.log("Loading project from:", jsonFilename);
-        
+
+        if (jsonFilename.endsWith('.md')) {
+            const markdown = await readTextFile(joinPath(jsonFilename));
+            return {
+                noteType: 'text' as const,
+                markdown,
+                fileName: jsonFilename
+            };
+        }
+
         const jsonContent = await readTextFile(joinPath(jsonFilename));
         const data = JSON.parse(jsonContent);
 
@@ -265,6 +311,7 @@ export async function loadNote(jsonFilename: string) {
         const pdfArrayBuffer = pdfBinary.buffer.slice(pdfBinary.byteOffset, pdfBinary.byteOffset + pdfBinary.byteLength);
 
         return {
+            noteType: 'pdf' as const,
             notes: data.pages,
             pdfData: pdfArrayBuffer,
             fileName: pdfName
@@ -279,6 +326,11 @@ export async function deleteFile(jsonFilename: string) {
     if (!rootPath) throw new Error("No folder selected");
 
     try {
+        if (jsonFilename.endsWith('.md')) {
+            await remove(joinPath(jsonFilename));
+            return;
+        }
+
         let pdfName: string | null = null;
         try {
             const jsonContent = await readTextFile(joinPath(jsonFilename));

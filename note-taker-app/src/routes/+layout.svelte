@@ -9,11 +9,13 @@
 	let isSidebarOpen = $state(true);
 	let isSaving = $state(false);
 	let hasAutosaveEnabled = $state(false);
-	let currentFileName = $state("No PDF selected");
+	let currentFileName = $state("No note selected");
 	let onUpload = $state<() => void>(() => {});
+	let onCreateTextNote = $state<() => void>(() => {});
 	let onRemove = $state<() => void>(() => {});
 	let refreshSidebar = $state<() => void>(() => {});
 	let onLoadNote = $state<(jsonName: string) => Promise<void>>(async () => {});
+	let onRenameNote = $state<(oldName: string, newName: string) => void>(() => {});
 
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
@@ -24,10 +26,12 @@
 	setContext('navbar', {
 		setHandlers: (
 			uploadHandler: () => void,
+			createTextNoteHandler: () => void,
 			removeHandler: () => void,
 			saveHandler: () => void
 		) => {
 			onUpload = uploadHandler;
+			onCreateTextNote = createTextNoteHandler;
 			onRemove = removeHandler;
 			onSave = saveHandler;
 		},
@@ -45,6 +49,10 @@
 			onLoadNote = loadFn;
 		},
 		getLoadNote: () => onLoadNote,
+		setRenameHandler: (renameHandler: (oldName: string, newName: string) => void) => {
+			onRenameNote = renameHandler;
+		},
+		getRenameHandler: () => onRenameNote,
 		setCurrentFileName: (name: string) => {
 			currentFileName = name;
 		}
@@ -52,7 +60,7 @@
 
 </script>
 
-<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
+<Navbar {toggleSidebar} {onUpload} {onCreateTextNote} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
 <Sidebar {isSidebarOpen} {toggleSidebar} />
 <main class="app-main" class:sidebar-open={isSidebarOpen}>
 	{@render children()}

@@ -1,20 +1,36 @@
 <script lang="ts">
     import * as pdfjs from 'pdfjs-dist';
+    import { marked } from 'marked';
     import PageRow from '$lib/PageRow.svelte';
     import { getContext, onMount } from 'svelte';
-    import { saveNote, importPdfFromPath, loadNote, getWorkspacePath } from '$lib/fileSystem'; 
+    import {
+        saveNote,
+        saveTextNote,
+        createTextNote,
+        importPdfFromPath,
+        loadNote,
+        getWorkspacePath
+    } from '$lib/fileSystem';
     import { open } from '@tauri-apps/plugin-dialog';
 
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
     pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
-    // Get Context at TOP LEVEL
+    marked.setOptions({
+        gfm: true,
+        breaks: true
+    });
+
     const navbarContext = getContext<any>('navbar');
 
-    // State
+    type NoteMode = 'none' | 'pdf' | 'text';
+
+    let noteMode = $state<NoteMode>('none');
     let pages = $state<{ id: number; note: string; pageProxy: pdfjs.PDFPageProxy }[]>([]);
-    let currentPdfFileName = $state<string>("");
-    let currentNoteName = $state<string>("");
+    let textNoteContent = $state('');
+    let currentPdfFileName = $state<string>('');
+    let currentNoteEntry = $state<string>('');
+    let currentDisplayName = $state<string>('');
     let isNoteLoaded = $state(false);
     let hasBeenSaved = $state(false);
     let isSaving = $state(false);
@@ -27,7 +43,11 @@
     const MAX_GLOBAL_ZOOM = 2.5;
     const GLOBAL_ZOOM_STEP = 0.1;
 
-    // Debounced autosave - triggers 2 seconds after last note change
+    function renderMarkdown(text: string): string {
+        if (!text) return '';
+        return marked.parse(text) as string;
+    }
+
     function scheduleAutosave() {
         if (!hasBeenSaved || !isNoteLoaded) return;
 
@@ -40,31 +60,35 @@
         }, 2000);
     }
 
-    // Core save logic (used by both manual save and autosave)
     async function performSave(isAutosave: boolean = false) {
-        if (!isNoteLoaded || !currentNoteName || !currentPdfFileName) return;
-
-        const baseName = currentNoteName.replace(/\.json$/i, '');
-        const notesObject: Record<number, string> = {};
-
-        pages.forEach(p => {
-            if (p.note && p.note.trim().length > 0) {
-                notesObject[p.id] = p.note;
-            }
-        });
+        if (!isNoteLoaded || !currentNoteEntry) return;
 
         try {
             isSaving = true;
             navbarContext?.setIsSaving?.(true);
-            await saveNote(baseName, currentPdfFileName || null, null, notesObject);
+
+            if (noteMode === 'pdf') {
+                if (!currentPdfFileName) return;
+                const baseName = currentNoteEntry.replace(/\.json$/i, '');
+                const notesObject: Record<number, string> = {};
+                pages.forEach((p) => {
+                    if (p.note && p.note.trim().length > 0) {
+                        notesObject[p.id] = p.note;
+                    }
+                });
+                await saveNote(baseName, currentPdfFileName, null, notesObject);
+            } else if (noteMode === 'text') {
+                await saveTextNote(currentNoteEntry, textNoteContent);
+            }
+
             if (!isAutosave) {
                 hasBeenSaved = true;
                 navbarContext?.setHasAutosaveEnabled?.(true);
             }
         } catch (e) {
-            console.error("Save failed:", e);
+            console.error('Save failed:', e);
             if (!isAutosave) {
-                alert("Failed to save notes.");
+                alert('Failed to save note.');
             }
         } finally {
             isSaving = false;
@@ -72,12 +96,9 @@
         }
     }
 
-    // 1. Handle New PDF Import (Tauri Dialog)
     async function handleFileSelected() {
         try {
-            // Default to workspace folder if set
             const workspacePath = getWorkspacePath();
-
             const selected = await open({
                 multiple: false,
                 filters: [{ name: 'PDF', extensions: ['pdf'] }],
@@ -86,52 +107,72 @@
 
             if (selected) {
                 const sourcePath = selected as string;
-                // Import (Copy) the PDF and create JSON
                 const jsonName = await importPdfFromPath(sourcePath);
-                
-                // Immediately load the new project
                 await loadNoteData(jsonName, false);
-                
-                // Refresh sidebar
+
                 if (navbarContext && navbarContext.getRefreshSidebar) {
                     const refreshFn = navbarContext.getRefreshSidebar();
                     if (refreshFn) await refreshFn();
                 }
             }
         } catch (e) {
-            console.error("Import failed:", e);
-            alert("Failed to import PDF. Check console.");
+            console.error('Import failed:', e);
+            alert('Failed to import PDF. Check console.');
         }
     }
 
-    // Helper to load project data into state
-    async function loadNoteData(jsonName: string, isExistingSavedNote: boolean = true) {
-        console.log("loadNoteData called with:", jsonName);
+    async function handleCreateTextNote() {
         try {
-            const project = await loadNote(jsonName);
-            console.log("Project loaded:", project.fileName);
-            currentPdfFileName = project.fileName;
-            currentNoteName = jsonName.replace(/\.json$/i, '');
+            const fileName = await createTextNote();
+            await loadNoteData(fileName, true);
 
-            // Update navbar display
-            navbarContext?.setCurrentFileName?.(currentNoteName);
+            if (navbarContext && navbarContext.getRefreshSidebar) {
+                const refreshFn = navbarContext.getRefreshSidebar();
+                if (refreshFn) await refreshFn();
+            }
+        } catch (e) {
+            console.error('Create text note failed:', e);
+            alert('Failed to create text note. Check console.');
+        }
+    }
 
-            // Render PDF
-            await renderPDF(project.pdfData, project.notes);
+    async function loadNoteData(fileName: string, isExistingSavedNote: boolean = true) {
+        try {
+            const project = await loadNote(fileName);
+
+            currentNoteEntry = fileName;
+            currentDisplayName = fileName.replace(/\.(json|md)$/i, '');
+            navbarContext?.setCurrentFileName?.(currentDisplayName);
+
+            if (project.noteType === 'pdf') {
+                noteMode = 'pdf';
+                currentPdfFileName = project.fileName;
+                textNoteContent = '';
+                await renderPDF(project.pdfData, project.notes);
+            } else {
+                noteMode = 'text';
+                currentPdfFileName = '';
+                pages = [];
+                textNoteContent = project.markdown || '';
+            }
+
             isNoteLoaded = true;
-
-            // Existing notes load with autosave enabled; newly imported notes require first manual save.
+            showMarkdownAll = false;
             hasBeenSaved = isExistingSavedNote;
             navbarContext?.setHasAutosaveEnabled?.(isExistingSavedNote);
         } catch (e) {
-            console.error("Load failed:", e);
+            console.error('Load failed:', e);
         }
     }
 
-    // Expose load function to sidebar via context (optional, or Sidebar calls store directly)
-    // ...
+    function handleNoteRenamed(oldName: string, newName: string) {
+        if (currentNoteEntry !== oldName) return;
 
-    // 2. Render PDF Logic
+        currentNoteEntry = newName;
+        currentDisplayName = newName.replace(/\.(json|md)$/i, '');
+        navbarContext?.setCurrentFileName?.(currentDisplayName);
+    }
+
     async function renderPDF(arrayBuffer: ArrayBuffer, existingNotes: Record<string, string> = {}) {
         const pdfDoc = await pdfjs.getDocument(arrayBuffer).promise;
         const loadedPages = [];
@@ -140,53 +181,56 @@
             const pageProxy = await pdfDoc.getPage(i);
             loadedPages.push({
                 id: i,
-                note: existingNotes[i] || "", 
+                note: existingNotes[i] || '',
                 pageProxy: pageProxy
             });
         }
         pages = loadedPages;
     }
 
-    // 3. Handle Manual Save
     async function handleSave() {
-        if (!isNoteLoaded || !currentNoteName) {
-            alert("No project loaded to save.");
+        if (!isNoteLoaded || !currentNoteEntry) {
+            alert('No note loaded to save.');
             return;
         }
 
         await performSave(false);
         if (hasBeenSaved) {
-            alert("Notes saved! Autosave is now enabled.");
+            alert('Note saved! Autosave is now enabled.');
         }
     }
 
-    // 4. Watch for note changes and trigger autosave
-    // Uses $effect to track changes to the pages array (deeply reactive)
     $effect(() => {
-        // Read pages to establish dependency - this tracks all note changes
-        const noteSnapshot = pages.map(p => p.note).join('');
+        let contentSnapshot = '';
 
-        // Only schedule autosave if we have content and have saved before
-        if (noteSnapshot && hasBeenSaved) {
+        if (noteMode === 'pdf') {
+            contentSnapshot = pages.map((p) => p.note).join('');
+        } else if (noteMode === 'text') {
+            contentSnapshot = textNoteContent;
+        }
+
+        if (contentSnapshot && hasBeenSaved) {
             scheduleAutosave();
         }
     });
 
-    function handleRemovePDF() {
-        // Clear any pending autosave
+    function handleRemoveNote() {
         if (autosaveTimeout) {
             clearTimeout(autosaveTimeout);
             autosaveTimeout = null;
         }
 
+        noteMode = 'none';
         pages = [];
-        currentPdfFileName = "";
-        currentNoteName = "";
+        textNoteContent = '';
+        currentPdfFileName = '';
+        currentNoteEntry = '';
+        currentDisplayName = '';
         isNoteLoaded = false;
         hasBeenSaved = false;
+        showMarkdownAll = false;
 
-        // Update navbar display
-        navbarContext?.setCurrentFileName?.("No PDF selected");
+        navbarContext?.setCurrentFileName?.('No note selected');
         navbarContext?.setHasAutosaveEnabled?.(false);
     }
 
@@ -208,10 +252,9 @@
 
     onMount(() => {
         if (navbarContext) {
-            // Updated: handleFileSelected no longer takes an event, it triggers the dialog itself
-            navbarContext.setHandlers(handleFileSelected, handleRemovePDF, handleSave);
-            // Register loadNoteData so Sidebar can open notes
+            navbarContext.setHandlers(handleFileSelected, handleCreateTextNote, handleRemoveNote, handleSave);
             navbarContext.setLoadNote(loadNoteData);
+            navbarContext.setRenameHandler(handleNoteRenamed);
         }
 
         const handleGlobalZoomWheel = (event: WheelEvent) => {
@@ -238,7 +281,7 @@
 </script>
 
 <div id="content" bind:this={contentElement}>
-    {#if pages.length > 0}
+    {#if noteMode !== 'none'}
         <div class="global-zoom-controls">
             <button type="button" onclick={zoomOutGlobal} title="Zoom out" disabled={globalZoom <= MIN_GLOBAL_ZOOM}>−</button>
             <span>{Math.round(globalZoom * 100)}%</span>
@@ -247,27 +290,36 @@
                 type="button"
                 class="preview-toggle-btn"
                 onclick={toggleGlobalPreview}
-                title={showMarkdownAll ? "Switch all notes to edit mode" : "Preview all notes as markdown"}
+                title={showMarkdownAll ? 'Switch note to edit mode' : 'Preview note as markdown'}
             >
-                {showMarkdownAll ? "✏️" : "📖"}
+                {showMarkdownAll ? '✏️' : '📖'}
             </button>
         </div>
     {/if}
 
     <div class="zoom-surface" style:zoom={globalZoom}>
-    {#each pages as item (item.id)} 
-        <PageRow 
-            id={item.id} 
-            bind:note={item.note} 
-            pageProxy={item.pageProxy} 
-            showMarkdown={showMarkdownAll}
-        />
-    {:else}
-        <div class="placeholder">
-            <p>No PDF loaded.</p>
-            <p class="sub-text">Import a PDF or open a project from the sidebar.</p>
-        </div>
-    {/each}
+        {#if noteMode === 'pdf' && pages.length > 0}
+            {#each pages as item (item.id)}
+                <PageRow id={item.id} bind:note={item.note} pageProxy={item.pageProxy} showMarkdown={showMarkdownAll} />
+            {/each}
+        {:else if noteMode === 'text'}
+            <section class="text-note-layout">
+                <div class="editor text-note-editor">
+                    {#if showMarkdownAll}
+                        <div class="markdown-preview">
+                            {@html renderMarkdown(textNoteContent)}
+                        </div>
+                    {:else}
+                        <textarea bind:value={textNoteContent} placeholder="Write your note here..."></textarea>
+                    {/if}
+                </div>
+            </section>
+        {:else}
+            <div class="placeholder">
+                <p>No note loaded.</p>
+                <p class="sub-text">Import a PDF, create a text note, or open a note from the sidebar.</p>
+            </div>
+        {/if}
     </div>
 </div>
 
@@ -335,11 +387,73 @@
         color: #36414d;
     }
 
+    .text-note-layout {
+        display: block;
+        margin: 0 auto 50px auto;
+        width: min(1120px, calc(100vw - 120px));
+    }
+
+    .text-note-editor {
+        width: 100%;
+        min-height: 720px;
+    }
+
+    .editor {
+        display: flex;
+        flex-direction: column;
+    }
+
+    textarea {
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        box-sizing: border-box;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-family: 'Inter', sans-serif;
+        resize: vertical;
+        flex: 1;
+    }
+
+    .markdown-preview {
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        box-sizing: border-box;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background: #fafafa;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .markdown-preview :global(h1) { font-size: 1.8em; margin: 0.5em 0; font-weight: bold; }
+    .markdown-preview :global(h2) { font-size: 1.5em; margin: 0.5em 0; font-weight: bold; }
+    .markdown-preview :global(h3) { font-size: 1.2em; margin: 0.5em 0; font-weight: bold; }
+    .markdown-preview :global(p) { margin: 0.5em 0; line-height: 1.6; }
+    .markdown-preview :global(ul) { margin: 0.5em 0; padding-left: 1.5em; list-style-type: disc; }
+    .markdown-preview :global(ol) { margin: 0.5em 0; padding-left: 1.5em; list-style-type: decimal; }
+    .markdown-preview :global(li) { margin: 0.25em 0; display: list-item; }
+    .markdown-preview :global(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+    .markdown-preview :global(th), .markdown-preview :global(td) { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+    .markdown-preview :global(th) { background: #f0f0f0; font-weight: bold; }
+    .markdown-preview :global(tr:nth-child(even)) { background: #fafafa; }
+    .markdown-preview :global(code) { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    .markdown-preview :global(pre) { background: #e8e8e8; padding: 12px; border-radius: 4px; overflow-x: auto; }
+    .markdown-preview :global(pre code) { background: none; padding: 0; }
+    .markdown-preview :global(blockquote) { border-left: 3px solid #ccc; margin: 0.5em 0; padding-left: 1em; color: #666; }
+    .markdown-preview :global(a) { color: #007bff; }
+    .markdown-preview :global(strong) { font-weight: bold; }
+    .markdown-preview :global(em) { font-style: italic; }
+
     .placeholder {
         text-align: center;
         color: #666;
         margin-top: 100px;
     }
+
     .sub-text {
         font-size: 0.9rem;
         color: #888;

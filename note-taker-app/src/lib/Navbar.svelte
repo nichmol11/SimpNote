@@ -8,12 +8,13 @@
 
     // Define props
     export let onUpload: () => void;
+    export let onCreateTextNote: () => void;
     export let onRemove: () => void;
     export let toggleSidebar: () => void;
     export let onSave: () => void;
     export let isSaving: boolean = false;
     export let hasAutosaveEnabled: boolean = false;
-    export let currentFileName: string = "No PDF selected";
+    export let currentFileName: string = "No note selected";
     let isWindowMaximized = false;
     let isWindowFullscreen = false;
 
@@ -23,6 +24,10 @@
 
     function removePDF() {
         onRemove();
+    }
+
+    function createTextNote() {
+        onCreateTextNote();
     }
 
     async function updateWindowState() {
@@ -96,20 +101,22 @@
         <span class="logo"><img src={appIcon} alt="Note Taker App Logo"/></span>
         
         <div class="file-section" data-tauri-drag-region="false">
-            {#if currentFileName === "No PDF selected"}
+            {#if currentFileName === "No note selected"}
                 <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
+                <button class="custom-upload-btn text-note-btn" on:click={createTextNote}>New Text Note</button>
             {:else}
                 <button class="custom-upload-btn disabled" disabled>Import PDF</button>
+                <button class="custom-upload-btn text-note-btn disabled" disabled>New Text Note</button>
             {/if}
             
             <span class="file-name">{currentFileName}</span>
             
-            {#if currentFileName !== "No PDF selected"}
+            {#if currentFileName !== "No note selected"}
                 <button class="remove-btn" on:click={removePDF}>
                     {#if hasAutosaveEnabled}
                         Close note
                     {:else}
-                        Remove PDF
+                        Remove note
                     {/if}
                 </button>
             {/if}
@@ -217,6 +224,14 @@
     
     .custom-upload-btn:hover:not(.disabled) {
         background-color: #0056b3;
+    }
+
+    .text-note-btn {
+        background-color: #198754;
+    }
+
+    .text-note-btn:hover:not(.disabled) {
+        background-color: #157347;
     }
     
     .custom-upload-btn.disabled {
