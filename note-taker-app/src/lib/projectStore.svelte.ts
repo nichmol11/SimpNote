@@ -3,7 +3,7 @@ import {listFiles, renameFile, deleteFile, saveWorkspaceFile, readFile } from '$
 import {readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
 interface FileItem {
     name: string;
-    kind: 'file' | 'project';
+    kind: 'PDF Note' | 'Text Note';
 }
 
 interface FolderItem {
@@ -11,6 +11,64 @@ interface FolderItem {
     name: string;
     files: FileItem[];
     expanded?: boolean; // Add expanded state here to persist it
+}
+
+function getKindFromFileName(name: string): FileItem['kind'] {
+    return name.endsWith('.md') ? 'Text Note' : 'PDF Note';
+}
+
+function normalizeFileItem(raw: unknown): FileItem | null {
+    if (typeof raw === 'string') {
+        return {
+            name: raw,
+            kind: getKindFromFileName(raw)
+        };
+    }
+
+    if (!raw || typeof raw !== 'object') return null;
+
+    const candidate = raw as Partial<FileItem>;
+    if (typeof candidate.name !== 'string' || candidate.name.trim() === '') {
+        return null;
+    }
+
+    const inferredKind = getKindFromFileName(candidate.name);
+    const normalizedKind = candidate.kind === 'PDF Note' || candidate.kind === 'Text Note'
+        ? candidate.kind
+        : inferredKind;
+
+    return {
+        name: candidate.name,
+        kind: normalizedKind
+    };
+}
+
+function normalizeFolderItem(raw: unknown, index: number): FolderItem | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const candidate = raw as Partial<FolderItem> & { files?: unknown[] };
+    if (typeof candidate.name !== 'string' || candidate.name.trim() === '') {
+        return null;
+    }
+
+    const rawFiles = Array.isArray(candidate.files) ? candidate.files : [];
+    const files = rawFiles.map(normalizeFileItem).filter((f): f is FileItem => f !== null);
+
+    return {
+        id: typeof candidate.id === 'string' && candidate.id.trim() !== ''
+            ? candidate.id
+            : `folder-${index}-${Math.random().toString(36).slice(2, 9)}`,
+        name: candidate.name,
+        files,
+        expanded: candidate.expanded === true
+    };
+}
+
+function normalizeFolderList(raw: unknown): FolderItem[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .map((folder, index) => normalizeFolderItem(folder, index))
+        .filter((f): f is FolderItem => f !== null);
 }
 
 // 1. Define the Global State
@@ -33,7 +91,7 @@ export function setRootName(name: string) {
 }
 
 export function setFolderList(list: FolderItem[]) {
-    folderList = list;
+    folderList = normalizeFolderList(list);
     saveStructure(); // Auto-save whenever list is set manually
 }
 
@@ -52,7 +110,7 @@ export function addFileToFolder(fileName: string, folderName: string = "All Note
     
     // Avoid duplicates
     if (!folder.files.find(f => f.name === fileName)) {
-        folder.files.push({ name: fileName, kind: 'project' });
+        folder.files.push({ name: fileName, kind: getKindFromFileName(fileName) });
     }
     
     saveStructure();
@@ -68,8 +126,13 @@ export async function loadWorkspace() {
         const content = await readFile('workspace.json'); 
         const data = JSON.parse(content);
         if (data.folders) {
-            console.log("Workspace loaded:", data.folders);
-            folderList = data.folders;
+            const normalized = normalizeFolderList(data.folders);
+            console.log("Workspace loaded:", normalized);
+            folderList = normalized;
+            saveStructure();
+            if (folderList.length === 0) {
+                await refreshFileList();
+            }
         }
     } catch (e) {
         console.log("No workspace.json or load failed. Creating default.");
@@ -83,10 +146,10 @@ export async function refreshFileList() {
         id: 'root',
         name: 'All Notes',
         files: files
-            .filter(f => f.name.endsWith('.json') || f.name.endsWith('.pdf'))
+            .filter(f => f.name.endsWith('.json') || f.name.endsWith('.md'))
             .map(f => ({ 
                 name: f.name, 
-                kind: f.name.endsWith('.json') ? 'project' : 'file' 
+                kind: getKindFromFileName(f.name)
             })),
         expanded: true
     }];
@@ -113,12 +176,12 @@ async function saveStructure() {
     }
 }
 
-export async function renameItem(folderId: string, oldName: string, newName: string) {
+export async function renameItem(folderId: string, oldName: string, newName: string): Promise<boolean> {
     const folder = folderList.find(f => f.id === folderId);
-    if (!folder) return;
+    if (!folder) return false;
 
     const fileItem = folder.files.find(f => f.name === oldName);
-    if (!fileItem) return;
+    if (!fileItem) return false;
 
     // 1. Rename on disk first (source of truth)
     try {
@@ -126,10 +189,12 @@ export async function renameItem(folderId: string, oldName: string, newName: str
         
         // 2. Update State only if disk op succeeded
         fileItem.name = newName;
+        fileItem.kind = getKindFromFileName(newName);
         saveStructure(); // Save workspace.json with new reference
+        return true;
     } catch (e) {
         alert("Failed to rename file. Check console for details.");
-        // Revert UI if needed (by reloading list) or let the UI stay stale
+        return false;
     }
 }
 
@@ -137,7 +202,10 @@ export async function deleteNote(folderId: string, fileName: string) {
     const folder = folderList.find(f => f.id === folderId);
     if (!folder) return;
 
-    if (!confirm(`Are you sure you want to delete "${fileName}" and its PDF?`)) return;
+    const message = fileName.endsWith('.json')
+        ? `Are you sure you want to delete "${fileName}" and its PDF?`
+        : `Are you sure you want to delete "${fileName}"?`;
+    if (!confirm(message)) return;
 
     try {
         // 1. Delete from Disk

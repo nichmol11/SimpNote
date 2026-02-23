@@ -5,12 +5,18 @@
 	import { setContext } from 'svelte';
 
 	const { children } = $props();
-	
+
 	let isSidebarOpen = $state(true);
-	let onUpload = $state<(e: Event) => void>(() => {});
+	let isSaving = $state(false);
+	let hasAutosaveEnabled = $state(false);
+	let currentFileName = $state("No note selected");
+	let onUpload = $state<() => void>(() => {});
+	let onCreateTextNote = $state<() => void>(() => {});
 	let onRemove = $state<() => void>(() => {});
 	let refreshSidebar = $state<() => void>(() => {});
-	
+	let onLoadNote = $state<(jsonName: string) => Promise<void>>(async () => {});
+	let onRenameNote = $state<(oldName: string, newName: string) => void>(() => {});
+
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
 	}
@@ -19,22 +25,60 @@
 
 	setContext('navbar', {
 		setHandlers: (
-			uploadHandler: (e: Event) => void, 
+			uploadHandler: () => void,
+			createTextNoteHandler: () => void,
 			removeHandler: () => void,
 			saveHandler: () => void
 		) => {
 			onUpload = uploadHandler;
+			onCreateTextNote = createTextNoteHandler;
 			onRemove = removeHandler;
 			onSave = saveHandler;
 		},
 		setRefreshSidebar: (refreshFn: () => void) => {
 			refreshSidebar = refreshFn;
 		},
-		getRefreshSidebar: () => refreshSidebar
+		getRefreshSidebar: () => refreshSidebar,
+		setIsSaving: (saving: boolean) => {
+			isSaving = saving;
+		},
+		setHasAutosaveEnabled: (enabled: boolean) => {
+			hasAutosaveEnabled = enabled;
+		},
+		setLoadNote: (loadFn: (jsonName: string) => Promise<void>) => {
+			onLoadNote = loadFn;
+		},
+		getLoadNote: () => onLoadNote,
+		setRenameHandler: (renameHandler: (oldName: string, newName: string) => void) => {
+			onRenameNote = renameHandler;
+		},
+		getRenameHandler: () => onRenameNote,
+		setCurrentFileName: (name: string) => {
+			currentFileName = name;
+		}
 	});
 
 </script>
 
-<Navbar {toggleSidebar} {onUpload} {onRemove} {onSave} />
+<Navbar {toggleSidebar} {onUpload} {onCreateTextNote} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
 <Sidebar {isSidebarOpen} {toggleSidebar} />
-{@render children()}
+<main class="app-main" class:sidebar-open={isSidebarOpen}>
+	{@render children()}
+</main>
+
+<style>
+	:global(:root) {
+		--sidebar-width: 300px;
+	}
+
+	.app-main {
+		margin-left: 0;
+		width: 100%;
+		transition: margin-left 0.3s ease, width 0.3s ease;
+	}
+
+	.app-main.sidebar-open {
+		margin-left: var(--sidebar-width);
+		width: calc(100% - var(--sidebar-width));
+	}
+</style>

@@ -8,12 +8,17 @@ import {
     readDir, 
     remove, 
     rename,
-    copyFile 
+    exists
 } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 
 // In Tauri, we just store the absolute path string
 let rootPath: string | null = null;
+
+// Get the current workspace path (for file picker default)
+export function getWorkspacePath(): string | null {
+    return rootPath;
+}
 
 // --- Folder Management ---
 
@@ -95,7 +100,7 @@ export async function listFiles() {
         for (const entry of entries) {
             if (entry.isFile) {
                 if (entry.name == 'workspace.json') continue; // Skip workspace file
-                if (entry.name.endsWith('.json')) {
+                if (entry.name.endsWith('.json') || entry.name.endsWith('.md')) {
                     files.push({ name: entry.name, kind: 'file' });
                 }
             }
@@ -112,6 +117,40 @@ function joinPath(filename: string): string {
     if (!rootPath) throw new Error("No root path");
     const separator = navigator.userAgent.includes("Win") ? "\\" : "/";
     return `${rootPath}${separator}${filename}`;
+}
+
+function splitPdfBaseName(fileName: string) {
+    return fileName.replace(/\.pdf$/i, '');
+}
+
+async function getUniqueNoteBaseName(initialBaseName: string): Promise<string> {
+    if (!rootPath) throw new Error("No root path");
+
+    let counter = 0;
+    while (true) {
+        const candidate = counter === 0 ? initialBaseName : `${initialBaseName} (${counter})`;
+        const pdfExists = await exists(joinPath(`${candidate}.pdf`));
+        const jsonExists = await exists(joinPath(`${candidate}.json`));
+        if (!pdfExists && !jsonExists) {
+            return candidate;
+        }
+        counter += 1;
+    }
+}
+
+async function getUniqueMarkdownName(initialBaseName: string): Promise<string> {
+    if (!rootPath) throw new Error("No root path");
+
+    let counter = 0;
+    while (true) {
+        const candidateBase = counter === 0 ? initialBaseName : `${initialBaseName} (${counter})`;
+        const candidate = `${candidateBase}.md`;
+        const mdExists = await exists(joinPath(candidate));
+        if (!mdExists) {
+            return candidate;
+        }
+        counter += 1;
+    }
 }
 
 export async function readFile(filename: string) {
@@ -133,26 +172,37 @@ export async function readFile(filename: string) {
 // NEW: Import PDF directly from another location on disk
 export async function importPdfFromPath(sourcePath: string) {
     if (!rootPath) throw new Error("No folder selected");
-    
+
     // Extract filename from source path
-    const fileName = sourcePath.split(/[/\\]/).pop() || "document.pdf";
-    const destPath = joinPath(fileName);
-    
+    const originalFileName = sourcePath.split(/[/\\]/).pop() || "document.pdf";
+    const uniqueBaseName = await getUniqueNoteBaseName(splitPdfBaseName(originalFileName) || "document");
+    const localPdfName = `${uniqueBaseName}.pdf`;
+    const jsonName = `${uniqueBaseName}.json`;
+    const destPath = joinPath(localPdfName);
+
     try {
-        // Direct copy (Efficient)
-        await copyFile(sourcePath, destPath);
+        // Manual copy: read source file as binary, write to destination
+        // (copyFile seems broken on NixOS)
+        console.log("Reading PDF from:", sourcePath);
+        const pdfData = await readBinaryFile(sourcePath);
+        console.log("PDF size:", pdfData.byteLength, "bytes");
+
+        if (pdfData.byteLength === 0) {
+            throw new Error("Source PDF is empty");
+        }
+
+        console.log("Writing PDF to:", destPath);
+        await writeBinaryFile(destPath, pdfData);
+        console.log("PDF copied successfully");
     } catch (e) {
         console.error("Copy failed:", e);
-        throw new Error(`Failed to copy PDF from ${sourcePath}`);
+        throw new Error(`Failed to copy PDF from ${sourcePath}: ${e}`);
     }
     
     // Create initial JSON metadata
-    const baseName = fileName.replace(/\.pdf$/i, '');
-    const jsonName = `${baseName}.json`;
-    
     const noteData = {
         version: 1,
-        linkedPdf: fileName,
+        linkedPdf: localPdfName,
         updatedAt: new Date().toISOString(),
         pages: {} 
     };
@@ -169,6 +219,22 @@ export async function importPdfFromPath(sourcePath: string) {
     return jsonName; // Return the JSON filename so the app can load it
 }
 
+export async function createTextNote(initialBaseName: string = "Untitled Note") {
+    if (!rootPath) throw new Error("No folder selected");
+
+    const mdName = await getUniqueMarkdownName(initialBaseName);
+    await writeTextFile(joinPath(mdName), '');
+
+    addFileToFolder(mdName, "All Notes");
+    const currentList = getFolderList();
+    await writeTextFile(joinPath('workspace.json'), JSON.stringify({
+        version: 1,
+        folders: currentList
+    }, null, 2));
+
+    return mdName;
+}
+
 export async function saveWorkspaceFile(data: any) {
     if (!rootPath) return; // Silent return if no folder open
     
@@ -180,22 +246,30 @@ export async function saveWorkspaceFile(data: any) {
     }
 }
 
-export async function saveNote(baseName: string, pdfData: ArrayBuffer | null, notes: Record<number, string>) {
+export async function saveNote(
+    baseName: string,
+    linkedPdf: string | null,
+    pdfData: ArrayBuffer | null,
+    notes: Record<number, string>
+) {
     if (!rootPath) throw new Error("No folder selected");
 
-    // 1. Save PDF (Only if strictly needed, e.g. modified in memory)
-    // In the new flow, we prefer copying, but we keep this for legacy or generated PDFs
+    // Keep a stable link to the workspace-local PDF whenever possible.
+    const linkedPdfName = linkedPdf
+        ? linkedPdf.split(/[/\\]/).pop() || `${baseName}.pdf`
+        : `${baseName}.pdf`;
+
+    // 1. Save PDF only if modified/given in memory.
     if (pdfData) {
-        const pdfName = `${baseName}.pdf`;
         const uint8Array = new Uint8Array(pdfData);
-        await writeBinaryFile(joinPath(pdfName), uint8Array);
+        await writeBinaryFile(joinPath(linkedPdfName), uint8Array);
     }
 
     // 2. Save Notes JSON
     const jsonName = `${baseName}.json`;
     const noteData = {
         version: 1,
-        linkedPdf: `${baseName}.pdf`,
+        linkedPdf: linkedPdfName,
         updatedAt: new Date().toISOString(),
         pages: notes 
     };
@@ -206,12 +280,27 @@ export async function saveNote(baseName: string, pdfData: ArrayBuffer | null, no
     addFileToFolder(jsonName, "All Notes");
 }
 
+export async function saveTextNote(fileName: string, markdown: string) {
+    if (!rootPath) throw new Error("No folder selected");
+    await writeTextFile(joinPath(fileName), markdown);
+    addFileToFolder(fileName, "All Notes");
+}
+
 export async function loadNote(jsonFilename: string) {
     if (!rootPath) throw new Error("No folder selected");
     
     try {
         console.log("Loading project from:", jsonFilename);
-        
+
+        if (jsonFilename.endsWith('.md')) {
+            const markdown = await readTextFile(joinPath(jsonFilename));
+            return {
+                noteType: 'text' as const,
+                markdown,
+                fileName: jsonFilename
+            };
+        }
+
         const jsonContent = await readTextFile(joinPath(jsonFilename));
         const data = JSON.parse(jsonContent);
 
@@ -222,6 +311,7 @@ export async function loadNote(jsonFilename: string) {
         const pdfArrayBuffer = pdfBinary.buffer.slice(pdfBinary.byteOffset, pdfBinary.byteOffset + pdfBinary.byteLength);
 
         return {
+            noteType: 'pdf' as const,
             notes: data.pages,
             pdfData: pdfArrayBuffer,
             fileName: pdfName
@@ -236,6 +326,11 @@ export async function deleteFile(jsonFilename: string) {
     if (!rootPath) throw new Error("No folder selected");
 
     try {
+        if (jsonFilename.endsWith('.md')) {
+            await remove(joinPath(jsonFilename));
+            return;
+        }
+
         let pdfName: string | null = null;
         try {
             const jsonContent = await readTextFile(joinPath(jsonFilename));
