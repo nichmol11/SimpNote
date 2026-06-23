@@ -4,3 +4,13 @@
 fn main() {
     app_lib::run();
 }
+
+// Function to build file system representation in memory (tree)
+#[tauri::command]
+fn build_tree(dir: Path) -> TreeNode{
+    
+    //Check folder exists
+    if !dir.exists() {
+        eprintln!("Error: Folder '{}' does not exist.", )
+    }
+}

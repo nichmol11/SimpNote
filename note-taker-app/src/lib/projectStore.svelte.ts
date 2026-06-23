@@ -1,18 +1,31 @@
 // src/lib/projectStore.svelte.ts
 import {listFiles, renameFile, deleteFile, saveWorkspaceFile, readFile } from '$lib/fileSystem';
 import {readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
-interface FileItem {
-    name: string;
-    kind: 'PDF Note' | 'Text Note';
+
+// Define PDF data type
+interface PdfNotes {
+    pdfFile: string; // PDF filename
+    pages: Record<string, {text: string}> // notes keyed by page number
 }
 
-interface FolderItem {
-    id: string;
-    name: string;
-    files: FileItem[];
-    expanded?: boolean; // Add expanded state here to persist it
+// Define workspace
+interface Workspace {
+    order: Record<string, string[]>; // user defined note order
+    lastOpened?: string; // path to last opened note
+    pinned?: string[]; // list of user pinned notes
 }
 
+// In memory filesystem represention (tree representation)
+interface TreeNode {
+    name: string;
+    path: string; // Relative to vault root
+    kind: 'folder' | 'plain-note' | 'pdf-note';
+    children?: TreeNode[]; // Only folders have children
+    // expanded?: boolean // Possibly add to persist expansion state when app is reopened
+}
+
+
+/*
 function getKindFromFileName(name: string): FileItem['kind'] {
     return name.endsWith('.md') ? 'Text Note' : 'PDF Note';
 }
@@ -221,3 +234,4 @@ export async function deleteNote(folderId: string, fileName: string) {
         console.error(e);
     }
 }
+*/

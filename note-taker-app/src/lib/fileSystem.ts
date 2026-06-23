@@ -14,10 +14,15 @@ import { open } from '@tauri-apps/plugin-dialog';
 
 // In Tauri, we just store the absolute path string
 let rootPath: string | null = null;
+let lastWorkspaceWriteAt = 0;
 
 // Get the current workspace path (for file picker default)
 export function getWorkspacePath(): string | null {
     return rootPath;
+}
+
+export function wasWorkspaceRecentlyWrittenByApp(withinMs: number = 1500): boolean {
+    return Date.now() - lastWorkspaceWriteAt < withinMs;
 }
 
 // --- Folder Management ---
@@ -212,9 +217,9 @@ export async function importPdfFromPath(sourcePath: string) {
     // Update State
     addFileToFolder(jsonName, "All Notes");
     const currentList = getFolderList();
-    await writeTextFile(joinPath('workspace.json'), JSON.stringify({ 
+    await saveWorkspaceFile({ 
         version: 1, folders: currentList 
-    }, null, 2));
+    });
 
     return jsonName; // Return the JSON filename so the app can load it
 }
@@ -227,10 +232,10 @@ export async function createTextNote(initialBaseName: string = "Untitled Note") 
 
     addFileToFolder(mdName, "All Notes");
     const currentList = getFolderList();
-    await writeTextFile(joinPath('workspace.json'), JSON.stringify({
+    await saveWorkspaceFile({
         version: 1,
         folders: currentList
-    }, null, 2));
+    });
 
     return mdName;
 }
@@ -240,6 +245,7 @@ export async function saveWorkspaceFile(data: any) {
     
     try {
         await writeTextFile(joinPath('workspace.json'), JSON.stringify(data, null, 2));
+        lastWorkspaceWriteAt = Date.now();
     } catch (e) {
         console.error("FS: Failed to save workspace.json", e);
         throw e;

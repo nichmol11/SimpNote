@@ -1,6 +1,12 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    import { openDirectory, restoreDirectory } from '$lib/fileSystem';
+    import { watch } from '@tauri-apps/plugin-fs';
+    import {
+        openDirectory,
+        restoreDirectory,
+        getWorkspacePath,
+        wasWorkspaceRecentlyWrittenByApp
+    } from '$lib/fileSystem';
     import { 
         getFolderList, 
         setFolderList, 
@@ -27,6 +33,9 @@
     let dragEnterFolder = $state<string | null>(null);
     let dropPosition = $state<'before' | 'after' | null>(null);
     let dragOverFile = $state<{ folderId: string; fileIndex: number; position: 'before' | 'after' } | null>(null);
+    let unwatchWorkspace: (() => void) | null = null;
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    let isReloadQueued = false;
     
     // Derived state: which folders should show top/bottom borders
     let highlightTopBorder = $derived.by(() => {
@@ -59,21 +68,69 @@
         }
     });
 
-    onMount(async () => {
-        console.log("Sidebar mounted. Restoring directory...");
-        const handle = await restoreDirectory();
-        
-        if (handle) {
-            console.log("Directory restored:", handle.name);
-            setRootName(handle.name);
-            await loadWorkspace(); 
-        } else {
-            console.log("No directory restored.");
+    function isWorkspaceJsonPath(path: string): boolean {
+        const normalized = path.replace(/\\/g, '/');
+        return normalized.endsWith('/workspace.json') || normalized === 'workspace.json';
+    }
+
+    function scheduleAppReload(reason: string) {
+        if (isReloadQueued) return;
+        isReloadQueued = true;
+        console.log(`[Sidebar] ${reason}; reloading app.`);
+        reloadTimer = setTimeout(() => {
+            window.location.reload();
+        }, 150);
+    }
+
+    async function setupWorkspaceWatcher() {
+        unwatchWorkspace?.();
+        unwatchWorkspace = null;
+
+        const workspacePath = getWorkspacePath();
+        if (!workspacePath) return;
+
+        try {
+            unwatchWorkspace = await watch(
+                workspacePath,
+                (event) => {
+                    if (!event.paths.some(isWorkspaceJsonPath)) return;
+                    if (wasWorkspaceRecentlyWrittenByApp()) return;
+                    scheduleAppReload('Detected external workspace.json change');
+                },
+                { recursive: false, delayMs: 150 }
+            );
+        } catch (error) {
+            console.error('Failed to start workspace watcher:', error);
         }
-        
-        if (navbarContext && navbarContext.setRefreshSidebar) {
-            navbarContext.setRefreshSidebar(loadWorkspace);
-        }
+    }
+
+    onMount(() => {
+        void (async () => {
+            console.log("Sidebar mounted. Restoring directory...");
+            const handle = await restoreDirectory();
+            
+            if (handle) {
+                console.log("Directory restored:", handle.name);
+                setRootName(handle.name);
+                await loadWorkspace();
+                await setupWorkspaceWatcher();
+            } else {
+                console.log("No directory restored.");
+            }
+            
+            if (navbarContext && navbarContext.setRefreshSidebar) {
+                navbarContext.setRefreshSidebar(loadWorkspace);
+            }
+        })();
+
+        return () => {
+            if (reloadTimer) {
+                clearTimeout(reloadTimer);
+                reloadTimer = null;
+            }
+            unwatchWorkspace?.();
+            unwatchWorkspace = null;
+        };
     });
 
     async function handleOpenFolder() {
@@ -81,6 +138,7 @@
         if (handle) {
             setRootName(handle.name);
             await loadWorkspace();
+            await setupWorkspaceWatcher();
         }
     }
 
