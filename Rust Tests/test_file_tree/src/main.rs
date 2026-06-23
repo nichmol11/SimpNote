@@ -1,10 +1,3 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-fn main() {
-    app_lib::run();
-}
-
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -27,14 +20,7 @@ pub struct TreeNode {
     pub children: Option<Vec<TreeNode>>,
 }
 
-// Tauri wrapper for build_tree function
-#[tauri::command]
-fn build_tree_command(vault_path: String) -> Result<Option<TreeNode>, String> {
-    let path = Path::new(&vault_path);
-    build_tree(path).map_err(|e| e.to_string())
-}
 
-// Function to build file system representation in memory (tree)
 fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
     
     let path = dir;
