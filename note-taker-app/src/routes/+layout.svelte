@@ -1,6 +1,6 @@
 <script lang="ts">
 	import './layout.css';
-	import Sidebar from '$lib/img/Sidebar.svelte';
+	import Sidebar from '$lib/Sidebar.svelte';
 	import Navbar from '$lib/Navbar.svelte';
 	import { setContext } from 'svelte';
 

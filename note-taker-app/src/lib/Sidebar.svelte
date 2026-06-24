@@ -1,17 +1,15 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    import { openDirectory, restoreDirectory } from '$lib/fileSystem';
+    import { openDirectory, restoreDirectory } from '$lib/vault/fileSystem';
     import { 
-        getRootFolder,
         getFolderList, 
-        setRootFolder,
         setFolderList, 
         getRootName, 
         setRootName, 
         loadWorkspace,
         renameItem,
         deleteNote
-    } from '$lib/projectStore.svelte';
+    } from '$lib/vault/store.svelte';
 
     interface Props {
         isSidebarOpen: boolean;
@@ -21,11 +19,10 @@
     const { isSidebarOpen, toggleSidebar }: Props = $props();
     const navbarContext = getContext<any>('navbar');
 
-    let rootFolder = $derived(getRootFolder());
     let folderList = $derived(getFolderList());
     let rootFolderName = $derived(getRootName());
     
-    let expandedFolders = $state(new Set<string>(['root']));
+    let expandedFolders = $state(new Set<string>());
     let draggedItem = $state<{ folderId: string; fileIndex: number | null } | null>(null);
     let dragEnterFolder = $state<string | null>(null);
     let dropPosition = $state<'before' | 'after' | null>(null);
@@ -124,13 +121,6 @@
         expandedFolders = newSet;
     }
 
-    function cloneWorkspaceState() {
-        return {
-            root: structuredClone(rootFolder),
-            folders: structuredClone($state.snapshot(folderList))
-        };
-    }
-
     function clearDragState() {
         draggedItem = null;
         dragEnterFolder = null;
@@ -214,30 +204,27 @@
         const dragged = draggedItem;
         if (!dragged || dragged.fileIndex === null) return;
 
-        const state = cloneWorkspaceState();
-        const sourceFolder = dragged.folderId === 'root'
-            ? state.root
-            : state.folders.find((f: any) => f.id === dragged.folderId);
-        const targetFolder = targetFolderId === 'root'
-            ? state.root
-            : state.folders.find((f: any) => f.id === targetFolderId);
-
-        if (!sourceFolder || !targetFolder) {
+        const newList = structuredClone($state.snapshot(folderList));
+        const sourceFolderIndex = newList.findIndex((f: any) => f.id === dragged.folderId);
+        const targetFolderIndex = newList.findIndex((f: any) => f.id === targetFolderId);
+        if (sourceFolderIndex === -1 || targetFolderIndex === -1) {
             clearDragState();
             return;
         }
 
+        const sourceFolder = newList[sourceFolderIndex];
         const sourceFile = sourceFolder.files[dragged.fileIndex];
         if (!sourceFile) {
             clearDragState();
             return;
         }
 
-        const allFolders = [state.root, ...state.folders];
-        for (const folder of allFolders) {
+        // Ensure single ownership: remove this note from all folders before inserting at destination.
+        for (const folder of newList) {
             folder.files = folder.files.filter((f: any) => f.name !== sourceFile.name);
         }
 
+        const targetFolder = newList[targetFolderIndex];
         let insertIndex = targetFileIndex;
         const targetPosition = dragOverFile?.folderId === targetFolderId && dragOverFile.fileIndex === targetFileIndex
             ? dragOverFile.position
@@ -246,8 +233,7 @@
         insertIndex = Math.max(0, Math.min(insertIndex, targetFolder.files.length));
         targetFolder.files.splice(insertIndex, 0, sourceFile);
 
-        setRootFolder(state.root);
-        setFolderList(state.folders);
+        setFolderList(newList);
         clearDragState();
     }
 
@@ -257,60 +243,47 @@
         
         if (!draggedItem) return;
 
-        const state = cloneWorkspaceState();
-        const allFolders = [state.root, ...state.folders];
+        const newList = structuredClone($state.snapshot(folderList));
+
+        const sourceFolderIndex = newList.findIndex((f: any) => f.id === draggedItem!.folderId);
+        const targetFolderIndex = newList.findIndex((f: any) => f.id === targetFolderId);
+
+        if (sourceFolderIndex === -1 || targetFolderIndex === -1) {
+            clearDragState();
+            return;
+        }
 
         if (draggedItem.fileIndex !== null) {
-            const sourceFolder = draggedItem!.folderId === 'root'
-                ? state.root
-                : state.folders.find((f: any) => f.id === draggedItem!.folderId);
-            const targetFolder = targetFolderId === 'root'
-                ? state.root
-                : state.folders.find((f: any) => f.id === targetFolderId);
-
-            if (!sourceFolder || !targetFolder) {
-                clearDragState();
-                return;
-            }
-
+            const sourceFolder = newList[sourceFolderIndex];
             const sourceFile = sourceFolder.files[draggedItem.fileIndex];
             if (!sourceFile) {
                 clearDragState();
                 return;
             }
 
-            for (const folder of allFolders) {
+            // Ensure single ownership across folders.
+            for (const folder of newList) {
                 folder.files = folder.files.filter((f: any) => f.name !== sourceFile.name);
             }
 
+            const targetFolder = newList[targetFolderIndex];
             targetFolder.files.push(sourceFile);
         } else {
-            if (targetFolderId === 'root') {
-                clearDragState();
-                return;
-            }
-
-            const sourceFolderIndex = state.folders.findIndex((f: any) => f.id === draggedItem!.folderId);
-            const targetFolderIndex = state.folders.findIndex((f: any) => f.id === targetFolderId);
-            if (sourceFolderIndex === -1 || targetFolderIndex === -1) {
-                clearDragState();
-                return;
-            }
-
-            const movedFolder = state.folders.splice(sourceFolderIndex, 1)[0];
+            // REORDER FOLDER
+            const movedFolder = newList.splice(sourceFolderIndex, 1)[0];
+            
             let insertIndex = targetFolderIndex;
-
+            
             if (dropPosition === 'after') {
                 insertIndex = sourceFolderIndex < targetFolderIndex ? targetFolderIndex : targetFolderIndex + 1;
             } else {
                 insertIndex = sourceFolderIndex < targetFolderIndex ? targetFolderIndex - 1 : targetFolderIndex;
             }
-
-            state.folders.splice(insertIndex, 0, movedFolder);
+            
+            newList.splice(insertIndex, 0, movedFolder);
         }
 
-        setRootFolder(state.root);
-        setFolderList(state.folders);
+        setFolderList(newList);
         clearDragState();
     }
 </script>
@@ -330,100 +303,6 @@
     </div>
     <br>
     <div class="folder-list">
-        <div
-            class="folder root-folder"
-            class:drop-target-file={dragEnterFolder === rootFolder.id && draggedItem?.fileIndex !== null}
-            ondragover={(e) => handleDragOver(e, rootFolder.id)}
-            ondragleave={handleDragLeave}
-            ondrop={(e) => handleFileDrop(e, rootFolder.id, rootFolder.files.length)}
-            role="region"
-        >
-            <div class="folder-header">
-                <span class="folder-icon">📂</span>
-                <span class="folder-title">{rootFolder.name}</span>
-                <button class="toggle-btn" onclick={() => toggleFolder(rootFolder.id)}>
-                    {expandedFolders.has(rootFolder.id) ? '⯅' : '⯆'}
-                </button>
-            </div>
-
-            {#if expandedFolders.has(rootFolder.id)}
-                {#if rootFolder.files.length === 0}
-                    <div class="empty-folder">No top-level notes yet.</div>
-                {/if}
-
-                <ul>
-                    {#each rootFolder.files as file, j (file.name)}
-                        <li 
-                            class="file-item"
-                            class:is-project={file.kind === 'PDF Note' || file.kind === 'Text Note'}
-                            class:file-drop-before={dragOverFile?.folderId === rootFolder.id && dragOverFile.fileIndex === j && dragOverFile.position === 'before'}
-                            class:file-drop-after={dragOverFile?.folderId === rootFolder.id && dragOverFile.fileIndex === j && dragOverFile.position === 'after'}
-                            draggable="true"
-                            ondragstart={(e) => {
-                                e.stopPropagation();
-                                handleDragStart(e, rootFolder.id, j, file.name.replace(/\.(json|md)$/i, ''));
-                            }}
-                            ondragend={handleDragEnd}
-                            ondragover={(e) => handleFileDragOver(e, rootFolder.id, j)}
-                            ondrop={(e) => handleFileDrop(e, rootFolder.id, j)}
-                        >
-                            <button type="button" title="Open Note" class="file-open-btn" onclick={() => {
-                                const loadFn = navbarContext?.getLoadNote?.();
-                                if (loadFn) {
-                                    loadFn(file.name).catch((e: Error) => console.error("Load failed:", e));
-                                } else {
-                                    console.error("No loadNote function in context");
-                                }
-                            }}>📄</button>
-                            <input 
-                                type="text"
-                                value={file.name.replace(/\.(json|md)$/i, '')} 
-                                class="title-input" 
-                                onkeydown={(e) => {
-                                    if (e.key === 'Enter') e.currentTarget.blur();
-                                }}
-                                onchange={(e) => {
-                                    const input = e.currentTarget;
-                                    const enteredBaseName = input.value.trim().replace(/\.(json|md)$/i, '');
-                                    const extension = file.name.toLowerCase().endsWith('.md') ? '.md' : '.json';
-                                    const newBaseName = `${enteredBaseName}${extension}`;
-
-                                    if (!newBaseName || newBaseName === extension) {
-                                        input.value = file.name.replace(/\.(json|md)$/i, '');
-                                        return;
-                                    }
-
-                                    if (newBaseName.includes('/') || newBaseName.includes('\\')) {
-                                        alert("File names cannot contain slashes.");
-                                        input.value = file.name.replace(/\.(json|md)$/i, '');
-                                        return;
-                                    }
-
-                                    if (newBaseName !== file.name) {
-                                        const oldName = file.name;
-                                        renameItem(rootFolder.id, oldName, newBaseName).then((didRename) => {
-                                            if (!didRename) {
-                                                input.value = oldName.replace(/\.(json|md)$/i, '');
-                                                return;
-                                            }
-
-                                            const onRename = navbarContext?.getRenameHandler?.();
-                                            onRename?.(oldName, newBaseName);
-                                        });
-                                    }
-                                }}
-                            />
-                            <button class="del-btn" onclick={(e) => {
-                                    e.stopPropagation();
-                                    deleteNote(rootFolder.id, file.name);
-                                }
-                            }>×</button>
-                        </li>
-                    {/each}
-                </ul>
-            {/if}
-        </div>
-
         {#each folderList as folder (folder.id)}
             <div 
                 class="folder"
@@ -473,7 +352,9 @@
                                 ondrop={(e) => handleFileDrop(e, folder.id, j)}
                             >
                                 <button type="button" title="Open Note" class="file-open-btn" onclick={() => {
+                                    console.log("File button clicked:", file.name);
                                     const loadFn = navbarContext?.getLoadNote?.();
+                                    console.log("loadFn:", loadFn);
                                     if (loadFn) {
                                         loadFn(file.name).catch((e: Error) => console.error("Load failed:", e));
                                     } else {
@@ -492,7 +373,7 @@
                                         const enteredBaseName = input.value.trim().replace(/\.(json|md)$/i, '');
                                         const extension = file.name.toLowerCase().endsWith('.md') ? '.md' : '.json';
                                         const newBaseName = `${enteredBaseName}${extension}`;
-
+                                        
                                         if (!newBaseName || newBaseName === extension) {
                                             input.value = file.name.replace(/\.(json|md)$/i, '');
                                             return;

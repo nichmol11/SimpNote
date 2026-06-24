@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { addFileToFolder, getFolderList } from '$lib/projectStore.svelte';
+import { addFileToFolder, getFolderList } from '$lib/vault/store.svelte';
 import { 
     readTextFile, 
     writeTextFile, 

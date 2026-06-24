@@ -10,7 +10,7 @@
         importPdfFromPath,
         loadNote,
         getWorkspacePath
-    } from '$lib/fileSystem';
+    } from '$lib/vault/fileSystem';
     import { open } from '@tauri-apps/plugin-dialog';
 
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
