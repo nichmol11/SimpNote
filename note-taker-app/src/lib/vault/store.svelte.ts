@@ -1,4 +1,21 @@
 // src/lib/vault/store.svelte.ts
+
+// V2 code
+// src/lib/vault/store.svelte.ts
+import { invoke } from '@tauri-apps/api/core';
+import type { TreeNode } from './types';
+
+let tree = $state<TreeNode | null>(null);
+
+export function getTree() {
+    return tree;
+}
+
+export async function loadVaultTree(vaultPath: string) {
+    tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath });
+}
+
+// ORIGINAL CODE
 import {listFiles, renameFile, deleteFile, saveWorkspaceFile, readFile } from '$lib/vault/fileSystem';
 import {readTextFile, writeTextFile} from '@tauri-apps/plugin-fs';
 interface FileItem {

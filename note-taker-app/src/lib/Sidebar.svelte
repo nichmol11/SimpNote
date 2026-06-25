@@ -10,6 +10,13 @@
         renameItem,
         deleteNote
     } from '$lib/vault/store.svelte';
+    //NEW CODE
+    import TreeView from './vault/TreeView.svelte';
+    import { getTree, loadVaultTree } from '$lib/vault/store.svelte';
+
+    let tree = $derived(getTree());
+    loadVaultTree("/home/nichmol/Documents/Note-Taker-App/Rust Tests/Test Folder")
+
 
     interface Props {
         isSidebarOpen: boolean;
@@ -415,6 +422,10 @@
             <span>➕ New Folder</span>
         </button>
     </div>
+    <br>
+    {#if tree}
+        <TreeView node={tree} />
+    {/if}
 </div>
 
 <style>
