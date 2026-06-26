@@ -90,8 +90,16 @@ fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
 
     } else { 
         if path.extension().map_or(false, |ext| ext == "md") { // If item is a plain note i.e. a .md file create a plain note node
+            
+            // Extract file stem (drops the .md extension safely)
+            let stem_name = path
+                .file_stem()
+                .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid file name"))?
+                .to_string_lossy()
+                .into_owned();
+
             return Ok(Some(TreeNode {
-                name: name,
+                name: stem_name,
                 path: path.to_string_lossy().into_owned(),
                 kind: NodeKind::PlainNote,
                 children: None,

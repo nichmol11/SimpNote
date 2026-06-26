@@ -73,21 +73,25 @@
     }
 
     onMount(() => {
-        const appWindow = getCurrentWindow();
-        void updateWindowState();
-
-        let unlistenResize: (() => void) | undefined;
-        appWindow.onResized(() => {
+        try {
+            const appWindow = getCurrentWindow();
             void updateWindowState();
-        }).then((dispose) => {
-            unlistenResize = dispose;
-        }).catch((error) => {
-            console.error('Failed to listen for resize events:', error);
-        });
 
-        return () => {
-            unlistenResize?.();
-        };
+            let unlistenResize: (() => void) | undefined;
+            appWindow.onResized(() => {
+                void updateWindowState();
+            }).then((dispose) => {
+                unlistenResize = dispose;
+            }).catch((error) => {
+                console.error('Failed to listen for resize events:', error);
+            });
+
+            return () => {
+                unlistenResize?.();
+            };
+        } catch (error) {
+            console.warn('Tauri window API not available (likely in dev mode):', error);
+        }
     });
 </script>
 
@@ -97,8 +101,6 @@
         <button id="sidebar-toggle" data-tauri-drag-region="false" on:click={toggleSidebar} title="Toggle Sidebar">
             <img src={sidebarIcon} alt="sidebar button"/>
         </button>
-        
-        <span class="logo"><img src={appIcon} alt="Note Taker App Logo"/></span>
         
         <div class="file-section" data-tauri-drag-region="false">
             {#if currentFileName === "No note selected"}
