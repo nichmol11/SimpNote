@@ -1,20 +1,18 @@
+<!-- src/lib/vault/TreeView.svelte -->
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
+    import { selectFolder, getSelectedFolderPath, renameNode, deleteNode} from '$lib/vault/store.svelte'
 
     interface Props {
         node: TreeNode;
         depth?: number;
-        selectedFolder: string | null; // Make it bindable and nullable
-        onSelectFolder?: (path: string) => void; // Track click bubbling
         handleLeafClick?: () => void; 
     }
 
     let { 
         node, 
         depth = 0, 
-        selectedFolder = $bindable(null),
-        onSelectFolder,
         handleLeafClick 
     }: Props = $props();
 
@@ -26,21 +24,30 @@
         expanded = !expanded;
     }
 
-    // Handle when a folder row itself is clicked
-    function selectThisFolder() {
+    // Local selected folder variable
+    let selected = $derived(getSelectedFolderPath());
+
+    // Local reactive state to keep track of the node name for auto-sizing text inputs
+    let currentName = $state(node.name);
+
+    $effect(() => {
+        currentName = node.name;
+    });
+
+    // Function to handle node's on click functions
+    function handleFolderClick() {
         if (node.kind === 'folder') {
-            selectedFolder = node.path;
-            if (onSelectFolder) onSelectFolder(node.path);
+            selectFolder(selected === node.path ? null : node.path)
         }
     }
 
-    // Function to add a new folder
-    function addNewFolder(parentFolder: string) {
-        console.log("adding new folder within " + parentFolder);
+    // Function to handle renaming of nodes
+    function handleRename(event: Event) {
+        const target = event.target as HTMLInputElement | null;
+        if (!target) return;
+        renameNode(node.path, target.value);
     }
 
-    function renameNode(nodeName: string) {}
-    function deleteNode(nodeName: string) {}
 </script>
 
 
@@ -51,8 +58,6 @@
                 <TreeView 
                     node={child} 
                     depth={depth + 1} 
-                    bind:selectedFolder
-                    {onSelectFolder}
                     {handleLeafClick}
                 />
             {/each}
@@ -63,25 +68,33 @@
                 <span class="drop-down-placeholder"></span>
                 <div class="node-content">
                     <button class="leaf" onclick={handleLeafClick}>
-                        {node.kind === 'pdfNote' ? '📄' : '📝'} {node.name}
+                        {node.kind === 'pdfNote' ? '📄' : '📝'} 
+                        <span class="input-wrapper">
+                            <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename}/>
+                            <span class="input-mirror">{currentName}</span>
+                        </span>
                     </button>
-                    <button class="del-btn" title="Delete note" onclick={() => deleteNode(node.name)}>×</button>
+                    <button class="del-btn" title="Delete note" onclick={() => deleteNode(node.path)}>×</button>
                 </div>
             </div>
         {:else}
-            <div class="node-row folder-row-container" class:is-selected={selectedFolder === node.path}>
+            <div class="node-row folder-row-container" class:is-selected={selected === node.path}>
                 <span class="drop-down-placeholder">
                     <button class="folder-row" onclick={toggleExpanded}>
                         {expanded ? '⮟' : '⮞'}
                     </button>
                 </span>
                 <div class="node-content">
-                    <button class="folder-title-btn" onclick={selectThisFolder}>
+                    <button class="folder-title-btn" onclick={() => handleFolderClick()}>
                         <span class="folder-title">
-                            {expanded ? '📂' : '📁'} {node.name}
+                            {expanded ? '📂' : '📁'} 
+                            <span class="input-wrapper">
+                                <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename}/>
+                                <span class="input-mirror">{currentName}</span>
+                            </span>
                         </span>
                     </button>
-                    <button class="del-btn" title="Delete folder" onclick={() => deleteNode(node.name)}>×</button>
+                    <button class="del-btn" title="Delete folder" onclick={() => deleteNode(node.path)}>×</button>
                 </div>
             </div>
 
@@ -91,8 +104,6 @@
                         <TreeView 
                             node={child} 
                             depth={depth + 1} 
-                            bind:selectedFolder
-                            {onSelectFolder}
                             {handleLeafClick}
                         />
                     {/each}
@@ -142,8 +153,21 @@
         padding: 0;
     }
 
+
     .leaf, .folder-title-btn {
         flex-grow: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .folder-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
     }
 
     .node-content {
@@ -157,6 +181,50 @@
 
     .drop-down-placeholder {
         width: 16px;
+    }
+
+    /* Container layout driving responsive content sizing */
+    .input-wrapper {
+        display: inline-grid;
+        grid-template-columns: minmax(0, 1fr);
+        vertical-align: middle;
+        align-items: center;
+        min-width: 12px;
+        max-width: 100%;
+    }
+
+    .node-rename,
+    .input-mirror {
+        grid-area: 1 / 1;
+        font: inherit;
+        padding: 0;
+        margin: 0;
+        white-space: pre;
+    }
+
+    .node-rename {
+        border: none;
+        background: transparent;
+        color: inherit;
+        outline: none;
+        width: 100%;
+        overflow: hidden;
+        line-height: normal;
+        box-sizing: border-box;
+    }
+
+    .input-mirror {
+        visibility: hidden;
+        pointer-events: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .node-rename:focus {
+        outline: none;
+        box-shadow: none;
+        color: #666;
+        text-decoration: underline;
     }
 
     .del-btn {

@@ -1,17 +1,15 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    import { openDirectory, restoreDirectory } from '$lib/vault/fileSystem';
     //NEW CODE
     import TreeView from './vault/TreeView.svelte';
-    import { getTree, loadVaultTree } from '$lib/vault/store.svelte';
+    import { getTree, getVaultPath, openVault, restoreVault} from '$lib/vault/store.svelte';
 
     let tree = $derived(getTree());
 
-    let vaultFolderName;
-
-    // Load test folder
-    loadVaultTree("/home/nichmol/Documents/Note-Taker-App/Vault Test");
-
+    let vaultPath: string | null = $derived(getVaultPath());
+    let vaultFolderName = $derived(
+        vaultPath ? vaultPath.split('/').filter(Boolean).pop() || '' : ''
+    );
 
     interface Props {
         isSidebarOpen: boolean;
@@ -37,14 +35,19 @@
 
 <div id="sidebar" class={isSidebarOpen ? 'open' : 'closed'}>
     <h1 style="font-size: 1.5rem;">My Notes</h1>
-    <h2>Local directory:</h2>
+    {#if !vaultPath}
+        <h2>No vault folder selected.</h2>
+    {:else}
+        <h2>Active vault folder:</h2>
+        <h2 id="vault-folder" title={vaultPath}>📁{vaultFolderName}</h2>
+    {/if}
+
     <div class="actions">
-        {#if !vaultFolderName}
-            <button class="primary-btn" onclick={/* insert function call */placeholder()}>📂 Open Local Folder</button>
+        {#if !vaultPath}
+            <button class="primary-btn" onclick={openVault()}>📂 Add Local Vault Folder</button>
         {:else}
              <div class="current-folder">
-                <span title={vaultFolderName}>📂 {vaultFolderName}</span>
-                <button class="sm-btn" onclick={/* insert function call */placeholder()}>Change</button>
+                <button class="sm-btn" onclick={openVault()}>Change Vault Folder</button>
             </div>
         {/if}
     </div>

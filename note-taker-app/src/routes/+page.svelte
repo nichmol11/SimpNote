@@ -1,21 +1,43 @@
 <script lang="ts">
+    
+    // IMPORTS
     import * as pdfjs from 'pdfjs-dist';
     import { marked } from 'marked';
     import PageRow from '$lib/PageRow.svelte';
     import { getContext, onMount } from 'svelte';
-    import {
+    /*import {
         saveNote,
         saveTextNote,
         createTextNote,
         importPdfFromPath,
         loadNote,
         getWorkspacePath
-    } from '$lib/vault/fileSystem';
+    } from '$lib/vault/fileSystem'; */
     import { open } from '@tauri-apps/plugin-dialog';
 
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
     pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
+    // TEMPORARY — fileSystem.ts console/button testing, remove once verified
+    import { pickVaultDirectory, getStoredVaultPath, storeVaultPath } from '$lib/vault/fileSystem';
+
+    // @ts-ignore - temporary console testing only
+    window.testFns = { pickVaultDirectory, getStoredVaultPath, storeVaultPath };
+
+    async function testPick() {
+        const path = await pickVaultDirectory();
+        console.log('Picked:', path);
+    }
+
+    async function testGetStored() {
+        const path = await getStoredVaultPath();
+        console.log('Stored (verified):', path);
+    }
+
+    async function testStore() {
+        await storeVaultPath('/home/nichmol/Documents/Note-Taker-App/Vault Test');
+        console.log('Stored a test path');
+    }
     marked.setOptions({
         gfm: true,
         breaks: true
@@ -279,6 +301,12 @@
         };
     });
 </script>
+<!-- TEMPORARY test buttons — remove once verified
+<div style="position: fixed; top: 0; left: 0; z-index: 9999; background: white; padding: 8px;">
+    <button onclick={testPick}>Test pickVaultDirectory</button>
+    <button onclick={testGetStored}>Test getStoredVaultPath</button>
+    <button onclick={testStore}>Test storeVaultPath</button>
+</div> -->
 
 <div id="content" bind:this={contentElement}>
     {#if noteMode !== 'none'}
