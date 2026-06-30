@@ -2,9 +2,16 @@
 	import './layout.css';
 	import Sidebar from '$lib/Sidebar.svelte';
 	import Navbar from '$lib/Navbar.svelte';
-	import { setContext } from 'svelte';
+	import { onMount, setContext } from 'svelte';
+	import { restoreVault, getIsRestoring } from '$lib/vault/store.svelte';
 
 	const { children } = $props();
+
+	// Init function on app start
+	onMount(() => {
+		// Restore vault if it has been saved
+		restoreVault();
+	})
 
 	let isSidebarOpen = $state(true);
 	let isSaving = $state(false);

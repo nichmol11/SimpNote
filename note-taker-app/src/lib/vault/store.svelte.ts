@@ -7,13 +7,16 @@ import { pickVaultDirectory, getStoredVaultPath, storeVaultPath } from '$lib/vau
 // Define the tree (in-memory representation of the vault folder/file structure)
 let tree = $state<TreeNode | null>(null);
 
+// Variable to check if vault needs to be restored on startup
+let isRestoring: boolean = $state(true);
+
 // Function to return the tree
 export function getTree() {
     return tree;
 }
 
 // Current vault path
-let vaultPath: string | null = null;
+let vaultPath = $state<string | null>(null);
 
 
 // Function to return the current vault path
@@ -38,10 +41,18 @@ export async function openVault() {
 
 // Function to restore the vault from disk
 export async function restoreVault() {
+    isRestoring = true;
     const path = await getStoredVaultPath();
-    if (!path) return; //nothing stored or path invalid
-    await loadVaultTree(path);
-    vaultPath = path;
+    if (path) {
+        await loadVaultTree(path);
+        vaultPath = path;
+    }
+    isRestoring = false;
+}
+
+// Function to check if vault is being restored
+export function getIsRestoring() {
+    return isRestoring;
 }
 
 // Define selected folder variable

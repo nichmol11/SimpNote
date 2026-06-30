@@ -2,9 +2,11 @@
     import { onMount, getContext } from 'svelte';
     //NEW CODE
     import TreeView from './vault/TreeView.svelte';
-    import { getTree, getVaultPath, openVault, restoreVault} from '$lib/vault/store.svelte';
+    import { getTree, getVaultPath, openVault, getIsRestoring} from '$lib/vault/store.svelte';
 
     let tree = $derived(getTree());
+    // Check if vault needs to be restored
+	let isRestoring = $derived(getIsRestoring());
 
     let vaultPath: string | null = $derived(getVaultPath());
     let vaultFolderName = $derived(
@@ -35,35 +37,37 @@
 
 <div id="sidebar" class={isSidebarOpen ? 'open' : 'closed'}>
     <h1 style="font-size: 1.5rem;">My Notes</h1>
-    {#if !vaultPath}
-        <h2>No vault folder selected.</h2>
+    {#if isRestoring}
+        <h2>Loading vault...</h2>
     {:else}
-        <h2>Active vault folder:</h2>
-        <h2 id="vault-folder" title={vaultPath}>📁{vaultFolderName}</h2>
+        <div class="vault">
+            {#if !vaultPath}
+                <h2>No vault folder selected.</h2>
+                <div class="vault-row">
+                    <button class="vault-btn-open" onclick={() => openVault()}>📂 Add Folder</button>
+                </div>
+            {:else}
+                <h2>Active vault folder:</h2>
+                <div class="vault-row">
+                    <h2 id="vault-folder" title={vaultPath}>🗄️ {vaultFolderName}</h2>
+                    <button class="vault-btn-change" title="Change vault folder" onclick={() => openVault()}>✏️</button>
+                </div>
+            {/if}
+        </div>
+        <br>
+        <div id="folder-list">
+            {#if tree}
+                <TreeView 
+                    node={tree} 
+                    bind:selectedFolder={currentlySelectedFolderPath} 
+                    onSelectFolder={handleFolderSelection}
+                />
+            {/if}
+        </div>
+        <button class="add-folder-btn" onclick={() => addNewFolder('New Folder')}>
+            <span>➕ New Folder</span>
+        </button>
     {/if}
-
-    <div class="actions">
-        {#if !vaultPath}
-            <button class="primary-btn" onclick={openVault()}>📂 Add Local Vault Folder</button>
-        {:else}
-             <div class="current-folder">
-                <button class="sm-btn" onclick={openVault()}>Change Vault Folder</button>
-            </div>
-        {/if}
-    </div>
-    
-<div id="folder-list">
-    {#if tree}
-        <TreeView 
-            node={tree} 
-            bind:selectedFolder={currentlySelectedFolderPath} 
-            onSelectFolder={handleFolderSelection}
-        />
-    {/if}
-</div>
-    <button class="add-folder-btn" onclick={() => addNewFolder('New Folder')}>
-        <span>➕ New Folder</span>
-    </button>
 </div>
 
 <style>
@@ -81,13 +85,39 @@
     #sidebar.closed { transform: translateX(-100%); }
     #sidebar.open { transform: translateX(0); }
 
-    .actions { margin-bottom: 15px; }
-    .primary-btn {
-        width: 100%; padding: 10px;
+
+    .vault {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .vault-row {
+        padding-left: 16px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    /*
+    .vault-actions {
+    
+    }
+    */
+    .vault-btn-open {
+        width: 100%;
+        padding: 5px;
         background: #007bff; color: white;
         border: none; border-radius: 6px; cursor: pointer;
         font-weight: 500;
     }
+
+    .vault-btn-change {
+        padding: 5px;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
     .current-folder {
         display: flex; justify-content: space-between; align-items: center;
         background: #eee; padding: 6px 10px; border-radius: 6px; font-size: 0.9rem;
