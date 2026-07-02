@@ -1,7 +1,8 @@
 // src/lib/vault/fileSystem.ts
 
 import { open, message } from '@tauri-apps/plugin-dialog';
-import { readDir } from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, exists, rename} from '@tauri-apps/plugin-fs'
+import { join } from '@tauri-apps/api/path'
 import { db } from '$lib/db';
 
 // Function to allow the user to select the folder for their note vault
@@ -42,4 +43,26 @@ export async function storeVaultPath(path: string): Promise<void> {
         handle: path,
         name: path.split(/[/\\]/).pop() || path
     })
+}
+
+// Function to create a new folder in the vault
+export async function createFolder(parentPath: string): Promise<void> {
+    const baseName: string = 'New Folder';
+    
+    // Check if folder with same path already exists, if it does, edit name to prevent name collision
+    for (let i=0; ; i++) {
+        const name = i === 0 ? baseName: `${baseName} ${i}`
+        const fullPath = await join(parentPath, name)
+
+        // If a directory with that name/path DOES NOT already exist, we can create it
+        if (!(await exists(fullPath))) {
+            await mkdir(fullPath);
+            return;
+        }
+    }
+}
+
+// Function to rename an item
+export async function renameItem(oldPath: string, newPath: string) {
+    await rename(oldPath, newPath);
 }

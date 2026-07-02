@@ -2,7 +2,7 @@
     import { onMount, getContext } from 'svelte';
     //NEW CODE
     import TreeView from './vault/TreeView.svelte';
-    import { getTree, getVaultPath, openVault, getIsRestoring} from '$lib/vault/store.svelte';
+    import { getTree, getVaultPath, openVault, getIsRestoring, addNewFolder} from '$lib/vault/store.svelte';
 
     let tree = $derived(getTree());
     // Check if vault needs to be restored
@@ -21,9 +21,6 @@
     const { isSidebarOpen, toggleSidebar }: Props = $props();
     const navbarContext = getContext<any>('navbar');
 
-    function placeholder(){
-        console.log("I am a placeholder!")
-    }
 
     // Folder selection logic
     let currentlySelectedFolderPath = $state<string | null>(null);
@@ -64,7 +61,7 @@
                 />
             {/if}
         </div>
-        <button class="add-folder-btn" onclick={() => addNewFolder('New Folder')}>
+        <button class="add-folder-btn" onclick={() => addNewFolder()}>
             <span>➕ New Folder</span>
         </button>
     {/if}

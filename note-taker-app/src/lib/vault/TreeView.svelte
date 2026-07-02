@@ -2,7 +2,8 @@
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
-    import { selectFolder, getSelectedFolderPath, renameNode, deleteNode} from '$lib/vault/store.svelte'
+    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode} from '$lib/vault/store.svelte'
+	import { message } from '@tauri-apps/plugin-dialog';
 
     interface Props {
         node: TreeNode;
@@ -17,12 +18,10 @@
     }: Props = $props();
 
     // Variable for expansion state of folders
-    let expanded = $state(false);
+    let expanded = $derived(isExpanded(node.path));
 
-    // Function to toggle folder expansion
-    function toggleExpanded() {
-        expanded = !expanded;
-    }
+    // Variable to track if a folder has children
+    const hasChildren = $derived((node.children?.length ?? 0) > 0);
 
     // Local selected folder variable
     let selected = $derived(getSelectedFolderPath());
@@ -42,10 +41,21 @@
     }
 
     // Function to handle renaming of nodes
-    function handleRename(event: Event) {
+    async function handleRename(event: Event) {
         const target = event.target as HTMLInputElement | null;
         if (!target) return;
-        renameNode(node.path, target.value);
+        try {
+            await renameNode(node.path, target.value, node.kind);
+        } catch (e) {
+            // Inform the user if name is invalid
+            await message(
+                e instanceof Error ? e.message : 'Rename failed',
+                { title: 'Invalid name', kind: 'warning' }
+            );
+        
+            // reset name if error thrown, e.g. if new name is blank
+            target.value = node.name.replace(/\.md$/, '');
+        }       
     }
 
 </script>
@@ -70,7 +80,14 @@
                     <button class="leaf" onclick={handleLeafClick}>
                         {node.kind === 'pdfNote' ? '📄' : '📝'} 
                         <span class="input-wrapper">
-                            <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename}/>
+                            <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename} onkeydown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.currentTarget.blur(); // triggers onblur, which calls handleRename
+                                } else if (e.key === 'Escape') {
+                                    e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
+                                    e.currentTarget.blur(); // unfocus without renaming
+                                }
+                            }}/>
                             <span class="input-mirror">{currentName}</span>
                         </span>
                     </button>
@@ -80,16 +97,25 @@
         {:else}
             <div class="node-row folder-row-container" class:is-selected={selected === node.path}>
                 <span class="drop-down-placeholder">
-                    <button class="folder-row" onclick={toggleExpanded}>
+                {#if hasChildren}
+                    <button class="folder-row" onclick={() => toggleExpanded(node.path)}>
                         {expanded ? '⮟' : '⮞'}
                     </button>
+                {/if}
                 </span>
                 <div class="node-content">
                     <button class="folder-title-btn" onclick={() => handleFolderClick()}>
                         <span class="folder-title">
                             {expanded ? '📂' : '📁'} 
                             <span class="input-wrapper">
-                                <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename}/>
+                                <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename} onkeydown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.currentTarget.blur(); // triggers onblur, which calls handleRename
+                                    } else if (e.key === 'Escape') {
+                                        e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
+                                        e.currentTarget.blur(); // unfocus without renaming
+                                    }
+                                }}/>
                                 <span class="input-mirror">{currentName}</span>
                             </span>
                         </span>

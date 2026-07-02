@@ -1,8 +1,9 @@
-
 // src/lib/vault/store.svelte.ts
+
 import { invoke } from '@tauri-apps/api/core';
-import type { TreeNode } from './types';
-import { pickVaultDirectory, getStoredVaultPath, storeVaultPath } from '$lib/vault/fileSystem';
+import type { NodeKind, TreeNode } from './types';
+import { pickVaultDirectory, getStoredVaultPath, storeVaultPath, createFolder, renameItem } from '$lib/vault/fileSystem';
+import { validateNodeName } from '$lib/vault/validation.ts';
 
 // Define the tree (in-memory representation of the vault folder/file structure)
 let tree = $state<TreeNode | null>(null);
@@ -55,6 +56,31 @@ export function getIsRestoring() {
     return isRestoring;
 }
 
+// Variable to keep track of which folders are expanded in the viewer
+let expandedFolders = $state(new Set<string>());
+
+// Function to check if a folder is expanded
+export function isExpanded(path: string) {
+    return expandedFolders.has(path);
+}
+
+// Function to toggle exansion state
+export function toggleExpanded(path: string) {
+    if (expandedFolders.has(path)) {
+        expandedFolders.delete(path);
+    } else {
+        expandedFolders.add(path);
+    }
+
+    expandedFolders = new Set(expandedFolders);
+}
+
+// Function to expand a folder
+export function expandFolder(path: string) {
+    expandedFolders.add(path);
+    expandedFolders = new Set(expandedFolders);
+}
+
 // Define selected folder variable
 let selectedFolderPath = $state<string | null>(null);
 
@@ -71,16 +97,55 @@ export function selectFolder(path: string | null) {
 }
 
 // Function to add a new folder to the tree
-export function addNewFolder(parentFolder: string) {
-    console.log("adding new folder within " + parentFolder);
+export async function addNewFolder() {
+
+    // Check if vault is open
+    if (!vaultPath) {
+        throw new Error("No vault is open");
+    }
+    
+    // If no folder is selected, default to the vault root
+    const parentPath = selectedFolderPath ?? vaultPath;
+
+    // Expand the parent folder automatically
+    expandFolder(parentPath);
+
+    // Create a new folder within
+    await createFolder(parentPath);
+
+    // Rebuild the tree
+    await loadVaultTree(vaultPath);
+
+
 }
 
 // Function to rename a node
-export function renameNode(nodePath: string, newName: string) {
-    // DEBUG
-    console.log("Renaming node at path: " + nodePath + "\n\t to: " + newName)
+export async function renameNode(nodePath: string, newName: string, kind: NodeKind) {
+    
+    // Check if vault is open
+    if (!vaultPath) throw new Error("No vault is open");
+    
+    // Check if new name is valid
+    const validationError = validateNodeName(newName);
+    if (validationError) throw new Error(validationError);
+
+    // If the name is unchanged, return early
+    const currentName = nodePath.split('/').at(-1) ?? '';
+    const currentBaseName = currentName.replace(/\.md$/, '');
+    if (newName.trim() === currentBaseName) return;
+
+    // Derive the new path
+    const parentPath = nodePath.split('/').slice(0, -1).join('/');
+    const newPath = parentPath + '/' + newName + (kind === 'plainNote' ? '.md' : '');
+    
+    // Rename the item
+    await renameItem(nodePath, newPath); // renameItem() on fileSystem.ts calls Tauri's rename() function
+
+    // Rebuild the tree to reflect the change
+    await loadVaultTree(vaultPath);
+
 }
 
 
 // Function to delete a node from the tree
-export function deleteNode(nodePath: string) {}
+export async function deleteNode(nodePath: string) {}
