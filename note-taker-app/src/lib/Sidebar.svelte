@@ -1,6 +1,5 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
-    //NEW CODE
     import TreeView from './vault/TreeView.svelte';
     import { getTree, getVaultPath, openVault, getIsRestoring, addNewFolder} from '$lib/vault/store.svelte';
 

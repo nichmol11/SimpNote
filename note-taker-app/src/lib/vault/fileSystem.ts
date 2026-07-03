@@ -1,7 +1,7 @@
 // src/lib/vault/fileSystem.ts
 
 import { open, message } from '@tauri-apps/plugin-dialog';
-import { readDir, mkdir, exists, rename} from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, exists, rename, remove, writeTextFile} from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { db } from '$lib/db';
 
@@ -45,8 +45,25 @@ export async function storeVaultPath(path: string): Promise<void> {
     })
 }
 
+// Function to initialise the .system folder when a new vault is created or restored
+export async function initSystemFolder(vaultPath: string): Promise<void> {
+    const systemPath = await join(vaultPath, '.system');
+    const workspacePath = await join(systemPath, 'workspace.json');
+
+    // Create .system folder if it doesn't already exist
+    if (!(await exists(systemPath))) {
+        await(mkdir(systemPath));
+    }
+
+    // Create workspace.json, checking that it doesn't already exist to prevent overwriting existing data
+    if (!(await exists(workspacePath))) {
+        await writeTextFile(workspacePath, JSON.stringify({ order: {}}, null, 2));
+    }
+}
+
+
 // Function to create a new folder in the vault
-export async function createFolder(parentPath: string): Promise<void> {
+export async function createNoteFolder(parentPath: string): Promise<void> {
     const baseName: string = 'New Folder';
     
     // Check if folder with same path already exists, if it does, edit name to prevent name collision
@@ -62,7 +79,16 @@ export async function createFolder(parentPath: string): Promise<void> {
     }
 }
 
+
 // Function to rename an item
 export async function renameItem(oldPath: string, newPath: string) {
     await rename(oldPath, newPath);
 }
+
+// Function to delete an item
+export async function deleteItem(itemPath: string) {
+    await remove(itemPath, {
+        recursive: true, // Make sure all children are deleted if the item is a folder
+    });
+}
+

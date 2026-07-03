@@ -3,7 +3,7 @@
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
     import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode} from '$lib/vault/store.svelte'
-	import { message } from '@tauri-apps/plugin-dialog';
+	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
     interface Props {
         node: TreeNode;
@@ -58,6 +58,20 @@
         }       
     }
 
+    // Function to handle deleting of nodes
+    async function handleDelete(nodeName: string, nodePath: string, nodeKind: string) {
+        // Check if the user is sure they want to delete this item
+        // Build the confirmation message
+        const typeLabel = nodeKind === 'folder' ? 'folder' : 'note';
+        const message = `This will delete the ${typeLabel} ${nodeName}${nodeKind === 'folder' ? ', all notes and folders within will also be deleted.' : '.'}\nThis action cannot be undone.`;
+
+        // Call a confirmation window
+        const confirmation: boolean = await confirm(message, { title: 'Are you sure?', kind: 'warning' });
+
+        // Delete the node if the user confirms
+        if (confirmation) await deleteNode(nodePath);
+    }
+
 </script>
 
 
@@ -91,7 +105,7 @@
                             <span class="input-mirror">{currentName}</span>
                         </span>
                     </button>
-                    <button class="del-btn" title="Delete note" onclick={() => deleteNode(node.path)}>×</button>
+                    <button class="del-btn" title="Delete note" onclick={() => handleDelete(node.name, node.path, node.kind)}>×</button>
                 </div>
             </div>
         {:else}
@@ -120,7 +134,7 @@
                             </span>
                         </span>
                     </button>
-                    <button class="del-btn" title="Delete folder" onclick={() => deleteNode(node.path)}>×</button>
+                    <button class="del-btn" title="Delete folder" onclick={() => handleDelete(node.name, node.path, node.kind)}>×</button>
                 </div>
             </div>
 

@@ -1,33 +1,42 @@
 // src/lib/vault/store.svelte.ts
 
 import { invoke } from '@tauri-apps/api/core';
-import type { NodeKind, TreeNode } from './types';
-import { pickVaultDirectory, getStoredVaultPath, storeVaultPath, createFolder, renameItem } from '$lib/vault/fileSystem';
-import { validateNodeName } from '$lib/vault/validation.ts';
+import type { NodeKind, TreeNode, NoteState, Workspace } from './types';
+import { 
+    pickVaultDirectory, 
+    getStoredVaultPath, 
+    storeVaultPath,
+    initSystemFolder, 
+    createNoteFolder, 
+    renameItem, 
+    deleteItem 
+} from '$lib/vault/fileSystem';
+import { validateNodeName } from '$lib/vault/validation';
 
-// Define the tree (in-memory representation of the vault folder/file structure)
-let tree = $state<TreeNode | null>(null);
+// Define state variables
+let tree = $state<TreeNode | null>(null); // In-memory representation of the vault folder/file structure
+let order = $state<Record<string, string[]>>({}); // Note order variable - keyed by vault-relative folder path
+let lastOpened = $state<string | null>(null); // Variable to keep track of the most recently opened note's (vault-relative) path
+let pinned = $state<string[]>([]); // Variable to hold the paths of the notes pinned by the user
+let noteState = $state<Record<string, NoteState>>({}); // Variable to track where the user has scrolled to on each note - keyed by vault-relative path
+let isRestoring = $state(true); // Variable to check if vault needs to be restored on startup
+let vaultPath = $state<string | null>(null); // Variable to keep track of the current vault path
+let selectedFolderPath = $state<string | null>(null); // Variable to keep track of the selected folder
+let expandedFolders = $state(new Set<string>()); // Variable to keep track of which folders are expanded in the viewer
 
-// Variable to check if vault needs to be restored on startup
-let isRestoring: boolean = $state(true);
-
-// Function to return the tree
-export function getTree() {
-    return tree;
-}
-
-// Current vault path
-let vaultPath = $state<string | null>(null);
-
-
-// Function to return the current vault path
-export function getVaultPath() {
-    return vaultPath;
-}
+// Getter functions for state variables
+export function getTree() { return tree; }
+export function getOrder() { return order; }
+export function getLastOpened() { return lastOpened; }
+export function getPinned() { return pinned; }
+export function getNoteState() { return noteState; }
+export function getIsRestoring() { return isRestoring; }
+export function getVaultPath() { return vaultPath; }
+export function getSelectedFolderPath() { return selectedFolderPath; }
 
 // Function to build the tree from vault folder
-export async function loadVaultTree(vaultPath: string) {
-    tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath });
+export async function loadVaultTree(path: string) {
+    tree = await invoke<TreeNode | null>('build_tree_command', { path });
 }
 
 // Function to pick the vault folder
@@ -36,6 +45,7 @@ export async function openVault() {
     // If user cancelled, return
     if (!path) return;
     await storeVaultPath(path);
+    await initSystemFolder(path);
     await loadVaultTree(path);
     vaultPath = path;
 }
@@ -45,19 +55,12 @@ export async function restoreVault() {
     isRestoring = true;
     const path = await getStoredVaultPath();
     if (path) {
+        await initSystemFolder(path);
         await loadVaultTree(path);
         vaultPath = path;
     }
     isRestoring = false;
 }
-
-// Function to check if vault is being restored
-export function getIsRestoring() {
-    return isRestoring;
-}
-
-// Variable to keep track of which folders are expanded in the viewer
-let expandedFolders = $state(new Set<string>());
 
 // Function to check if a folder is expanded
 export function isExpanded(path: string) {
@@ -81,14 +84,6 @@ export function expandFolder(path: string) {
     expandedFolders = new Set(expandedFolders);
 }
 
-// Define selected folder variable
-let selectedFolderPath = $state<string | null>(null);
-
-// Function to return the currently selected folder path
-export function getSelectedFolderPath() {
-    return selectedFolderPath;
-}
-
 // Function to set the currently selected folder
 export function selectFolder(path: string | null) {
     selectedFolderPath = path;
@@ -96,7 +91,7 @@ export function selectFolder(path: string | null) {
     console.log("Selected folder: " + selectedFolderPath);
 }
 
-// Function to add a new folder to the tree
+// Function to add a new note folder to the tree
 export async function addNewFolder() {
 
     // Check if vault is open
@@ -111,12 +106,10 @@ export async function addNewFolder() {
     expandFolder(parentPath);
 
     // Create a new folder within
-    await createFolder(parentPath);
+    await createNoteFolder(parentPath);
 
     // Rebuild the tree
     await loadVaultTree(vaultPath);
-
-
 }
 
 // Function to rename a node
@@ -146,6 +139,14 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
 
 }
 
-
 // Function to delete a node from the tree
-export async function deleteNode(nodePath: string) {}
+export async function deleteNode(nodePath: string) {
+    // Check if vault is open
+    if (!vaultPath) throw new Error("No vault is open");
+
+    // Call the filesystem function to delete the item
+    await deleteItem(nodePath);
+
+    // Rebuild the tree to reflect the change
+    await loadVaultTree(vaultPath);
+}

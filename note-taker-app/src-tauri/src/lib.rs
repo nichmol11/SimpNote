@@ -55,8 +55,15 @@ fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
     let path = dir;
     let name = path.file_name().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "path has no filename"))?.to_string_lossy().into_owned();
     
-    // If item is a folder, check if it is a PDF note bundle or a subfolder
+    // If item is a folder, check if it is a system/hidden folder, a PDF note bundle or a subfolder
     if path.is_dir() {
+        
+        // Check if the folder is a system (.) folder, i.e. .system
+        if path.file_name().and_then(|n| n.to_str()).map_or(false, |n| n.starts_with('.')) {
+            return Ok(None); // Skip hidden/system folders
+        }
+
+        // Check if the folder is a PDF bundle
         if is_folder_pdf_bundle(&path) {
             // Create PDF tree node
             return Ok(Some(TreeNode {

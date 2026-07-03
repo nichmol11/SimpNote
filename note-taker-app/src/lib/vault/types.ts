@@ -14,8 +14,14 @@ export interface PdfNotes {
     pages: Record<string, { text: string }>; // keyed by page number as string
 }
 
+export interface NoteState {
+        lastPage?: number; // PDF notes record last page scrolled to
+        scrollY?: number; // plain notes - record scroll position
+}
+
 export interface Workspace {
     order: Record<string, string[]>; // folder path -> ordered filenames/foldernames
     lastOpened?: string; // path to last opened note
-    pinned?: string[];
+    pinned?: string[]; // List of pinned notes
+    noteState?: Record<string, NoteState>;
 }
