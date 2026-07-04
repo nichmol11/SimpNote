@@ -36,7 +36,8 @@ export function getSelectedFolderPath() { return selectedFolderPath; }
 
 // Function to build the tree from vault folder
 export async function loadVaultTree(path: string) {
-    tree = await invoke<TreeNode | null>('build_tree_command', { path });
+    console.log("loadVaultTree called with path: " + path); // DEBUG
+    tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath: path });
 }
 
 // Function to pick the vault folder
@@ -53,13 +54,18 @@ export async function openVault() {
 // Function to restore the vault from disk
 export async function restoreVault() {
     isRestoring = true;
-    const path = await getStoredVaultPath();
-    if (path) {
-        await initSystemFolder(path);
-        await loadVaultTree(path);
-        vaultPath = path;
+    try {
+        const path = await getStoredVaultPath();
+        if (path) {
+            await initSystemFolder(path);
+            await loadVaultTree(path);
+            vaultPath = path;
+        }
+    } catch (e) {
+        console.error('Failed to restore vault:', e);
+    } finally {
+        isRestoring = false;
     }
-    isRestoring = false;
 }
 
 // Function to check if a folder is expanded

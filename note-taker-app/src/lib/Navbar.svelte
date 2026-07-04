@@ -102,7 +102,7 @@
             <img src={sidebarIcon} alt="sidebar button"/>
         </button>
         
-        <div class="file-section" data-tauri-drag-region="false">
+        <!-- <div class="file-section" data-tauri-drag-region="false">
             {#if currentFileName === "No note selected"}
                 <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
                 <button class="custom-upload-btn text-note-btn" on:click={createTextNote}>New Text Note</button>
@@ -140,7 +140,7 @@
                     alt={hasAutosaveEnabled ? "autosave enabled" : "save button"}
                 />
             </button>
-        </div>
+        </div> -->
 
         <div class="drag-region"></div>
 
@@ -171,7 +171,7 @@
     .navbar {
         top: 0;
         width: 100%;
-        height: 50px;
+        height: 40px;
         position: fixed;
         border-bottom: 1px solid #ddd;
         background-color: white;

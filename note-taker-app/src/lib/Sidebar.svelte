@@ -29,6 +29,10 @@
         // You can now read `currentlySelectedFolderPath` when adding new nodes!
     }
 
+    // PLACEHOLDERS - MOVE TO vault/store.svelte.ts
+    function addNewPDFNote() { console.log("Add PDF note"); }
+    function addNewPlainNote() { console.log("Add plain note"); }
+
 </script>
 
 <div id="sidebar" class={isSidebarOpen ? 'open' : 'closed'}>
@@ -60,8 +64,21 @@
                 />
             {/if}
         </div>
-        <button class="add-folder-btn" onclick={() => addNewFolder()}>
-            <span>➕ New Folder</span>
+        <br>
+        <button class="add-node-btn" onclick={() => addNewFolder()}>
+            <div class="add-node-btn-content">
+                <span>➕</span><span>New Folder</span><span>📁</span>
+            </div>
+        </button>
+        <button class="add-node-btn" onclick={() => addNewPDFNote()}>
+            <div class="add-node-btn-content">
+                <span>➕</span><span>New PDF Note</span><span>📄</span>
+            </div>
+        </button>
+        <button class="add-node-btn" onclick={() => addNewPlainNote()}>
+            <div class="add-node-btn-content">
+                <span>➕</span><span>New Plain Note</span><span>📝</span>
+            </div>
         </button>
     {/if}
 </div>
@@ -69,16 +86,19 @@
 <style>
     #sidebar {
         position: fixed;
-        top: 60px; left: 0;
+        top: 40px; left: 0;
         height: 100%; width: 300px;
-        padding: 20px;
+        padding: 16px;
         background-color: #f9f9f9;
         border-right: 1px solid #ddd;
         transition: transform 0.3s ease;
         z-index: 99;
         overflow-y: auto;
+        margin-top: 0;
     }
+
     #sidebar.closed { transform: translateX(-100%); }
+
     #sidebar.open { transform: translateX(0); }
 
 
@@ -95,11 +115,7 @@
         justify-content: space-between;
         gap: 8px;
     }
-    /*
-    .vault-actions {
-    
-    }
-    */
+  
     .vault-btn-open {
         width: 100%;
         padding: 5px;
@@ -114,7 +130,34 @@
         font-weight: 500;
     }
 
-    .current-folder {
+    /* Folder list (tree view container) styling*/
+    #folder-list {
+        padding: 5px;
+        padding-right: 0px;
+        width: 100%;
+        background-color: white;
+        border-radius: 16px;
+    }
+
+    .add-node-btn {
+        margin-top: 10px; width: 100%; padding: 8px;
+        background: none; border: 1px dashed #ccc; border-radius: 6px;
+        color: #666; cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .add-node-btn:hover { border-color: #666; color: #333; }
+
+    .add-node-btn-content {
+        width: 80%;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+    }
+    /* OLD FOLDER DRAG STUFF */
+    /* .current-folder {
         display: flex; justify-content: space-between; align-items: center;
         background: #eee; padding: 6px 10px; border-radius: 6px; font-size: 0.9rem;
     }
@@ -123,11 +166,7 @@
     }
     .sm-btn { padding: 2px 8px; font-size: 0.8rem; cursor: pointer; }
 
-    /* Folder list (tree view container) styling*/
-    #folder-list {
-        margin-left: 6px;
-        width: calc(100% + 8px);
-    }
+
     .folder {
         background: white;
         margin-bottom: 8px;
@@ -137,13 +176,13 @@
         transition: none;
     }
     
-    /* File drop target - highlight entire folder */
+
     .folder.drop-target-file { 
         background: #eff6ff; 
         border-color: #3b82f6; 
     }
     
-    /* Folder reorder - highlight borders on both sides of the gap */
+
     .folder.drop-target-top {
         border-top: 1px solid #616161;
     }
@@ -188,13 +227,6 @@
     .file-item.file-drop-before { border-top-color: #3b82f6; }
     .file-item.file-drop-after { border-bottom-color: #3b82f6; }
 
-    .add-folder-btn {
-        margin-top: 10px; width: 100%; padding: 8px;
-        background: none; border: 1px dashed #ccc; border-radius: 6px;
-        color: #666; cursor: pointer;
-    }
-    .add-folder-btn:hover { border-color: #666; color: #333; }
-
     .file-open-btn {
         background: none; border: none; cursor: pointer;
         padding: 0; font-size: 1rem; color: inherit;
@@ -218,5 +250,5 @@
         font-size: 12px;
         font-weight: 600;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
-    }
+    } */
 </style>

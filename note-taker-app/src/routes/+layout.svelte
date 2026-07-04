@@ -66,7 +66,6 @@
 	});
 
 </script>
-
 <Navbar {toggleSidebar} {onUpload} {onCreateTextNote} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
 <Sidebar {isSidebarOpen} {toggleSidebar} />
 <main class="app-main" class:sidebar-open={isSidebarOpen}>
