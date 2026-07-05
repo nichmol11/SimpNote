@@ -9,7 +9,9 @@ import {
     initSystemFolder, 
     createNoteFolder, 
     renameItem, 
-    deleteItem 
+    deleteItem,
+    readWorkspace,
+    writeWorkspace, 
 } from '$lib/vault/fileSystem';
 import { validateNodeName } from '$lib/vault/validation';
 
@@ -36,19 +38,25 @@ export function getSelectedFolderPath() { return selectedFolderPath; }
 
 // Function to build the tree from vault folder
 export async function loadVaultTree(path: string) {
-    console.log("loadVaultTree called with path: " + path); // DEBUG
+    // console.log("loadVaultTree called with path: " + path); // DEBUG
     tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath: path });
 }
 
 // Function to pick the vault folder
 export async function openVault() {
-    const path = await pickVaultDirectory();
-    // If user cancelled, return
-    if (!path) return;
-    await storeVaultPath(path);
-    await initSystemFolder(path);
-    await loadVaultTree(path);
-    vaultPath = path;
+    try {
+        const path = await pickVaultDirectory();
+        if (!path) return; // If user cancelled, return
+        await storeVaultPath(path);
+        await initSystemFolder(path);
+        await loadVaultTree(path);
+        await loadWorkspaceData(path);
+        vaultPath = path;
+    } catch (e) {
+        console.error('Failed to open vault:', e);
+        throw e;
+    }
+
 }
 
 // Function to restore the vault from disk
@@ -59,6 +67,7 @@ export async function restoreVault() {
         if (path) {
             await initSystemFolder(path);
             await loadVaultTree(path);
+            await loadWorkspaceData(path);
             vaultPath = path;
         }
     } catch (e) {
@@ -66,6 +75,35 @@ export async function restoreVault() {
     } finally {
         isRestoring = false;
     }
+}
+
+// Function to load workspace data from workspace.json (if it exists)
+async function loadWorkspaceData(path: string) {
+    try {
+        const data = await readWorkspace(path);
+        if (data) { // If data is stored in workspace.json load it into the state variables
+            order = data.order ?? {};
+            lastOpened = data.lastOpened ?? null;
+            pinned = data.pinned ?? [];
+            noteState = data.noteState ?? {};
+        }
+    } catch(e) {
+        console.error('Failed to load vault: ', e);
+    }
+}
+
+// Function to save workspace data to workspace.json
+async function saveWorkspaceData() {
+    if (!vaultPath) return; // return early if not vault path exists
+
+    const workspaceData: Workspace = {
+        order: $state.snapshot(order),
+        lastOpened, // $state.snapshot() not required for primitive types
+        pinned: $state.snapshot(pinned),
+        noteState: $state.snapshot(noteState)
+    };
+
+    await writeWorkspace(vaultPath, workspaceData); // write the data to workspace.json
 }
 
 // Function to check if a folder is expanded
@@ -106,13 +144,16 @@ export async function addNewFolder() {
     }
     
     // If no folder is selected, default to the vault root
-    const parentPath = selectedFolderPath ?? vaultPath;
+    const parentPath = selectedFolderPath ?? ""; // Empty defaults to root since path is relative
 
     // Expand the parent folder automatically
     expandFolder(parentPath);
 
     // Create a new folder within
-    await createNoteFolder(parentPath);
+    await createNoteFolder(parentPath, vaultPath);
+
+    // Update workspace.json
+    await saveWorkspaceData();
 
     // Rebuild the tree
     await loadVaultTree(vaultPath);
@@ -135,10 +176,14 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
 
     // Derive the new path
     const parentPath = nodePath.split('/').slice(0, -1).join('/');
-    const newPath = parentPath + '/' + newName + (kind === 'plainNote' ? '.md' : '');
-    
+    const newPath = parentPath 
+        ? `${parentPath}/${newName}${kind === 'plainNote' ? '.md' : ''}`
+        : `${newName}${kind === 'plainNote' ? '.md' : ''}`;
     // Rename the item
-    await renameItem(nodePath, newPath); // renameItem() on fileSystem.ts calls Tauri's rename() function
+    await renameItem(nodePath, newPath, vaultPath); // renameItem() on fileSystem.ts calls Tauri's rename() function
+
+    // Update workspace.json
+    await saveWorkspaceData();
 
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);
@@ -151,7 +196,10 @@ export async function deleteNode(nodePath: string) {
     if (!vaultPath) throw new Error("No vault is open");
 
     // Call the filesystem function to delete the item
-    await deleteItem(nodePath);
+    await deleteItem(nodePath, vaultPath);
+
+    // Update workspace.json
+    await saveWorkspaceData();
 
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);

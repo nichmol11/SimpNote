@@ -59,7 +59,7 @@
             {#if tree}
                 <TreeView 
                     node={tree} 
-                    bind:selectedFolder={currentlySelectedFolderPath} 
+                    bind:selectedFolder={currentlySelectedFolderPath}
                     onSelectFolder={handleFolderSelection}
                 />
             {/if}
@@ -136,12 +136,13 @@
         padding-right: 0px;
         width: 100%;
         background-color: white;
-        border-radius: 16px;
+        border-radius: 12px;
     }
 
     .add-node-btn {
         margin-top: 10px; width: 100%; padding: 8px;
-        background: none; border: 1px dashed #ccc; border-radius: 6px;
+        background: none; border: 1px dashed #ccc; 
+        border-radius: 12px;
         color: #666; cursor: pointer;
         display: flex;
         justify-content: center;

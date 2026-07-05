@@ -21,7 +21,7 @@ export interface NoteState {
 
 export interface Workspace {
     order: Record<string, string[]>; // folder path -> ordered filenames/foldernames
-    lastOpened?: string; // path to last opened note
+    lastOpened?: string | null; // path to last opened note
     pinned?: string[]; // List of pinned notes
     noteState?: Record<string, NoteState>;
 }

@@ -1,7 +1,7 @@
 // src/lib/vault/fileSystem.ts
 
 import { open, message } from '@tauri-apps/plugin-dialog';
-import { readDir, mkdir, exists, rename, remove, writeTextFile} from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, exists, rename, remove, writeTextFile, readTextFile} from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { db } from '$lib/db';
 
@@ -36,6 +36,11 @@ export async function getStoredVaultPath(): Promise<string | null> {
     }
 }
 
+// Helper functon to build the full path from a relative path
+async function getFullPath(relativePath: string, vaultPath: string) {
+    return await join(vaultPath, relativePath)
+}
+
 // Function to write the new vault path to the database
 export async function storeVaultPath(path: string): Promise<void> {
     await db.directoryMeta.clear();
@@ -63,13 +68,16 @@ export async function initSystemFolder(vaultPath: string): Promise<void> {
 
 
 // Function to create a new folder in the vault
-export async function createNoteFolder(parentPath: string): Promise<void> {
+export async function createNoteFolder(relativeParentPath: string, vaultPath: string): Promise<void> {
+    const parentPath = await getFullPath(relativeParentPath, vaultPath);
     const baseName: string = 'New Folder';
     
     // Check if folder with same path already exists, if it does, edit name to prevent name collision
     for (let i=0; ; i++) {
-        const name = i === 0 ? baseName: `${baseName} ${i}`
-        const fullPath = await join(parentPath, name)
+        const name = i === 0 ? baseName: `${baseName} ${i}`;
+        const fullPath = parentPath.endsWith('/') || parentPath.endsWith('\\') 
+            ? `${parentPath}${name}` 
+            : `${parentPath}/${name}`;
 
         // If a directory with that name/path DOES NOT already exist, we can create it
         if (!(await exists(fullPath))) {
@@ -79,16 +87,42 @@ export async function createNoteFolder(parentPath: string): Promise<void> {
     }
 }
 
-
 // Function to rename an item
-export async function renameItem(oldPath: string, newPath: string) {
+export async function renameItem(oldRelativePath: string, newRelativePath: string, vaultPath: string) {
+    const oldPath = await getFullPath(oldRelativePath, vaultPath);
+    const newPath = await getFullPath(newRelativePath, vaultPath);
     await rename(oldPath, newPath);
 }
 
 // Function to delete an item
-export async function deleteItem(itemPath: string) {
+export async function deleteItem(relativeItemPath: string, vaultPath: string) {
+    const itemPath = await getFullPath(relativeItemPath, vaultPath);
     await remove(itemPath, {
         recursive: true, // Make sure all children are deleted if the item is a folder
     });
 }
 
+// Function to read workspace.json into store state on vault load
+export async function readWorkspace(vaultPath: string): Promise<any | null> {
+    const workspacePath = await join(vaultPath, '.system', 'workspace.json');
+    try {
+        if (await exists(workspacePath)) {
+            const contents = await readTextFile(workspacePath);
+            return JSON.parse(contents);
+        }
+    } catch (error) {
+        console.error("Failed to read workspace.json:", error);
+    }
+    return null;
+}
+
+// Function to persist order, lastOpened, pinned, and noteState after mutations
+export async function writeWorkspace(vaultPath: string, data: any): Promise<void> {
+    const workspacePath = await join(vaultPath, '.system', 'workspace.json');
+    try {
+        const contents = JSON.stringify(data, null, 2);
+        await writeTextFile(workspacePath, contents);
+    } catch (error) {
+        console.error("Failed to write workspace.json:", error);
+    }
+}

@@ -46,29 +46,40 @@ pub struct TreeNode {
 #[tauri::command]
 fn build_tree_command(vault_path: String) -> Result<Option<TreeNode>, String> {
     let path = Path::new(&vault_path);
-    build_tree(path).map_err(|e| e.to_string())
+    build_tree(path, path).map_err(|e| e.to_string())
 }
 
 // Function to build file system representation in memory (tree)
-fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
+fn build_tree(dir: &Path, root_dir: &Path) -> Result<Option<TreeNode>, Error> {
     
-    let path = dir;
-    let name = path.file_name().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "path has no filename"))?.to_string_lossy().into_owned();
+    let relative_path = match dir.strip_prefix(root_dir) {
+        Ok(p) => {
+            let s = p.to_string_lossy();
+            if s.is_empty() {
+                "".to_string()
+            } else {
+                s.replace('\\', "/")
+            }
+        }
+        Err(_) => dir.to_string_lossy().into_owned(),
+    };
+
+    let name = dir.file_name().ok_or_else(|| Error::new(ErrorKind::InvalidInput, "path has no filename"))?.to_string_lossy().into_owned();
     
     // If item is a folder, check if it is a system/hidden folder, a PDF note bundle or a subfolder
-    if path.is_dir() {
+    if dir.is_dir() {
         
         // Check if the folder is a system (.) folder, i.e. .system
-        if path.file_name().and_then(|n| n.to_str()).map_or(false, |n| n.starts_with('.')) {
+        if dir.file_name().and_then(|n| n.to_str()).map_or(false, |n| n.starts_with('.')) {
             return Ok(None); // Skip hidden/system folders
         }
 
         // Check if the folder is a PDF bundle
-        if is_folder_pdf_bundle(&path) {
+        if is_folder_pdf_bundle(dir) {
             // Create PDF tree node
             return Ok(Some(TreeNode {
                 name: name,
-                path: path.to_string_lossy().into_owned(),
+                path: relative_path,
                 kind: NodeKind::PdfNote,
                 children: None, 
             }))
@@ -78,28 +89,28 @@ fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
             // Build out the children
             let mut children: Vec<TreeNode> = Vec::new();
 
-            for item in fs::read_dir(path)? {
+            for item in fs::read_dir(dir)? {
                 let item = item?;
                 let child_path = item.path();
             
-                if let Some(node) = build_tree(&child_path)? {
+                if let Some(node) = build_tree(&child_path, root_dir)? {
                     children.push(node);
                 }
             }
             // Create folder node
             return Ok(Some(TreeNode {
                 name: name,
-                path: path.to_string_lossy().into_owned(),
+                path: relative_path,
                 kind: NodeKind::Folder,
                 children: Some(children),
             }))
         }
 
     } else { 
-        if path.extension().map_or(false, |ext| ext == "md") { // If item is a plain note i.e. a .md file create a plain note node
+        if dir.extension().map_or(false, |ext| ext == "md") { // If item is a plain note i.e. a .md file create a plain note node
             
             // Extract file stem (drops the .md extension safely)
-            let stem_name = path
+            let stem_name = dir
                 .file_stem()
                 .ok_or_else(|| Error::new(ErrorKind::InvalidInput, "Invalid file name"))?
                 .to_string_lossy()
@@ -107,7 +118,7 @@ fn build_tree(dir: &Path) -> Result<Option<TreeNode>, Error> {
 
             return Ok(Some(TreeNode {
                 name: stem_name,
-                path: path.to_string_lossy().into_owned(),
+                path: relative_path,
                 kind: NodeKind::PlainNote,
                 children: None,
             }))
