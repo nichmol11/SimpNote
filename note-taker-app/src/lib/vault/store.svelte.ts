@@ -106,6 +106,16 @@ async function saveWorkspaceData() {
     await writeWorkspace(vaultPath, workspaceData); // write the data to workspace.json
 }
 
+// Function to update workspace data when mutations occur
+export function updatePathReferences(oldPath: string, newPath: string | null): void {
+    // If new Path is null, purge all of its entries
+    if (!newPath) {
+
+    } else { // otherwise, update references
+
+    }
+}
+
 // Function to check if a folder is expanded
 export function isExpanded(path: string) {
     return expandedFolders.has(path);
