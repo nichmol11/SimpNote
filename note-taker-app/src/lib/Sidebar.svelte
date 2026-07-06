@@ -47,15 +47,21 @@
                     <button class="vault-btn-open" onclick={() => openVault()}>📂 Add Folder</button>
                 </div>
             {:else}
-                <h2>Active vault folder:</h2>
                 <div class="vault-row">
-                    <h2 id="vault-folder" title={vaultPath}>🗄️ {vaultFolderName}</h2>
+                    <h2 id="vault-folder" title={vaultPath}><b>🗄️ Vault Folder:</b> {vaultFolderName}</h2>
                     <button class="vault-btn-change" title="Change vault folder" onclick={() => openVault()}>✏️</button>
                 </div>
             {/if}
         </div>
-        <br>
-        <div id="folder-list">
+        <div id="last-opened">
+            <h2>🔁 Last Opened:</h2>
+        </div>
+        <div id="pinned">
+            <h2>📌 Pinned Notes:</h2>
+        </div>
+        <div id="files">
+            <h2>📁 Vault files:</h2>
+            <div id="folder-list">
             {#if tree}
                 <TreeView 
                     node={tree} 
@@ -64,6 +70,8 @@
                 />
             {/if}
         </div>
+        </div>
+        
         <br>
         <button class="add-node-btn" onclick={() => addNewFolder()}>
             <div class="add-node-btn-content">
@@ -108,7 +116,6 @@
     }
 
     .vault-row {
-        padding-left: 16px;
         display: flex;
         flex-direction: row;
         align-items: center;

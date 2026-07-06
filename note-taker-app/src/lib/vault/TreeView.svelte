@@ -40,6 +40,30 @@
         }
     }
 
+    // Function to reorganise nodes according to order
+    function applyOrder(children: TreeNode[], orderList: string[] | undefined): TreeNode[] {
+        if (!orderList) return children; // If not order information saved, return unchanged
+        
+        // Order items by name for comparison
+        const byName = new Map(children.map(c => [c.name, c]));
+
+        const ordered: TreeNode[] = []; // Ordered list
+
+        for (const name of orderList) {
+            const match = byName.get(name);
+            if (match) {
+                // If a match is found, add the node to ordered list
+                ordered.push(match);
+                byName.delete(name);
+            }
+            // Names in orderlist that no longer exist on disk are dropped
+        }
+
+        // Remaining items in byName that were not saved in orderList are appended in alphabetical order
+        ordered.push(...[...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
+        return ordered;
+    }
+    
     // Function to handle renaming of nodes
     async function handleRename(event: Event) {
         const target = event.target as HTMLInputElement | null;
