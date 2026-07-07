@@ -42,6 +42,88 @@ export async function loadVaultTree(path: string) {
     tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath: path });
 }
 
+// Function to return a given node in the tree based on a bath
+function findNodeByPath(currNode: TreeNode | null, path: string): TreeNode | null {
+    if (!currNode) return null; // If the path doesn't exist, return null
+    if(currNode.path == path) return currNode; // If the node is the required node, return it
+    if(currNode.children) {
+        for (const childNode of currNode.children) {
+            const result = findNodeByPath(childNode, path);
+            if (result) return result; // If the node is found, return immediatly
+        }
+    }
+    return null; // Resturn null if found nowhere in the tree
+}
+
+// Function to return the paths of all descendant nodes of a given node
+function collectDescendantPaths(parentNode: TreeNode): string[] {
+    let descendantPaths: string[] = new Array;
+    if (!parentNode.children) return descendantPaths; // no children
+    
+    for (const childNode of parentNode.children) {
+        descendantPaths.push(childNode.path); // add child path
+        descendantPaths.push(...collectDescendantPaths(childNode)) // recurse to check descendants
+    }
+
+    return descendantPaths;
+}
+
+// Function to build a list of changes to be made to the workspace after each mutation
+function buildPathChanges(changedNode: TreeNode, oldPath: string, newPath: string | null): Array<[oldPath: string, newPath: string | null]> {
+    
+}
+
+// Function to update workspace path references during mutations
+function updatePathReferences(changes: Array<[oldPath: string, newPath: string | null]>): void {
+    for (const [oldPath, newPath] of changes) {
+        // Update order
+        if (oldPath in order) {
+            const value = order[oldPath];
+            delete order[oldPath];
+            if (newPath) {
+                order[newPath] = value;
+            }
+        }
+
+        // Update lastOpened
+        if (lastOpened === oldPath) {
+            lastOpened = newPath;
+        }
+        // Update pinned
+        for (let i=0; i<pinned.length; i++) {
+            const currPath = pinned[i];
+            if (currPath === oldPath) {
+                if (newPath) { // Update path to new path
+                    pinned[i] = newPath;
+                } else { // Remove entry if null
+                    pinned.splice(i, 1);
+                }
+            }
+        }
+
+        // Update noteState
+        if(oldPath in noteState) {
+            const value = noteState[oldPath];
+            delete noteState[oldPath];
+            if (newPath) {
+                noteState[newPath] = value;
+            }
+        }
+}
+
+// Function to update a node's parent's references in the order variable (workspace)
+function updateParentReferences(oldParentPath: string, oldName: string, newParentPath: string | null, newName: string | null): void {
+    // Remove reference from the old parent
+    if (oldParentPath in order) {
+        const index = order[oldParentPath].indexOf(oldName);
+        if (index !== -1) order[oldParentPath].splice(index, 1);
+    }
+    // If this is not a deletion (i.e. move or rename), add the node to its new parent, or add the updated node back
+    if (newParentPath && newName && newParentPath in order) {
+        order[newParentPath].push(newName); // If new parent has no order entry, it was previously empty - default to alphabetical order
+    }
+}
+
 // Function to pick the vault folder
 export async function openVault() {
     try {
@@ -106,15 +188,6 @@ async function saveWorkspaceData() {
     await writeWorkspace(vaultPath, workspaceData); // write the data to workspace.json
 }
 
-// Function to update workspace data when mutations occur
-export function updatePathReferences(oldPath: string, newPath: string | null): void {
-    // If new Path is null, purge all of its entries
-    if (!newPath) {
-
-    } else { // otherwise, update references
-
-    }
-}
 
 // Function to check if a folder is expanded
 export function isExpanded(path: string) {
