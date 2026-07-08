@@ -70,7 +70,24 @@ function collectDescendantPaths(parentNode: TreeNode): string[] {
 
 // Function to build a list of changes to be made to the workspace after each mutation
 function buildPathChanges(changedNode: TreeNode, oldPath: string, newPath: string | null): Array<[oldPath: string, newPath: string | null]> {
+    let pathChanges: Array<[oldPath: string, newPath: string | null]> = new Array;
+    pathChanges.push([oldPath, newPath]); // Push the changed node itself
     
+    // Grab child paths if they exist
+    const oldChildPaths = collectDescendantPaths(changedNode);
+
+    // Compute path changes for children if required
+    for (let path of oldChildPaths) {
+        const oldChildPath = path;
+        if (!newPath) { // Delete all child nodes as parent folder has been deleted
+            pathChanges.push([oldChildPath, null]); // new path is null i.e. delete this node from workspace
+        } else {
+            let relPath = oldChildPath.slice(oldPath.length);
+            const newChildPath = newPath + relPath;
+            pathChanges.push([oldChildPath, newChildPath]);
+        }
+    }
+    return pathChanges;
 }
 
 // Function to update workspace path references during mutations
@@ -109,6 +126,7 @@ function updatePathReferences(changes: Array<[oldPath: string, newPath: string |
                 noteState[newPath] = value;
             }
         }
+    }
 }
 
 // Function to update a node's parent's references in the order variable (workspace)
@@ -262,10 +280,22 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
     const newPath = parentPath 
         ? `${parentPath}/${newName}${kind === 'plainNote' ? '.md' : ''}`
         : `${newName}${kind === 'plainNote' ? '.md' : ''}`;
+
+    // Find the node to be renamed in the current tree
+    const node = findNodeByPath(tree, nodePath);
+
+    //Build the path changes
+    if (!node) throw new Error("Node not found in tree");
+    const pathChanges = buildPathChanges(node, nodePath, newPath)
+
     // Rename the item
     await renameItem(nodePath, newPath, vaultPath); // renameItem() on fileSystem.ts calls Tauri's rename() function
 
-    // Update workspace.json
+    // Update thew workspace variables
+    updatePathReferences(pathChanges);
+    updateParentReferences(parentPath, currentName, parentPath, newName + (kind === 'plainNote' ? '.md' : ''));
+
+    // Save updates to workspace.json
     await saveWorkspaceData();
 
     // Rebuild the tree to reflect the change
@@ -273,13 +303,63 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
 
 }
 
+// Function to move a node to a new parent folder
+export async function moveNode(nodePath: string, newParentPath: string, kind: NodeKind) {
+    // Check if vault is open
+    if (!vaultPath) throw new Error("No vault is open");
+    
+    // If the path is unchanged, return early
+    const oldParentPath = nodePath.split('/').slice(0, -1).join('/');
+    if (oldParentPath == newParentPath) return;
+
+    // Derive the new path
+    const nodeName = nodePath.split('/').at(-1) ?? '';
+    const nodeBaseName = nodeName.replace(/\.md$/, '');
+    const newPath = newParentPath
+        ? `${newParentPath}/${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`
+        : `${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`;
+
+    // Find the node to be renamed in the current tree
+    const node = findNodeByPath(tree, nodePath);
+
+    //Build the path changes
+    if (!node) throw new Error("Node not found in tree");
+    const pathChanges = buildPathChanges(node, nodePath, newPath)
+
+    // Rename the item
+    await renameItem(nodePath, newPath, vaultPath); // rename() handles both moving and renaming files
+
+    // Update the workspace variables
+    updatePathReferences(pathChanges);
+    updateParentReferences(oldParentPath, nodeBaseName + (kind === 'plainNote' ? '.md' : ''), newParentPath, nodeBaseName + (kind === 'plainNote' ? '.md' : ''));
+
+    // Save updates to workspace.json
+    await saveWorkspaceData();
+
+    // Rebuild the tree to reflect the change
+    await loadVaultTree(vaultPath);
+}
+
 // Function to delete a node from the tree
 export async function deleteNode(nodePath: string) {
     // Check if vault is open
     if (!vaultPath) throw new Error("No vault is open");
 
+    // Find the node to be deleted in the current tree
+    const node = findNodeByPath(tree, nodePath);
+    const nodeName = nodePath.split('/').at(-1) ?? ''; // Grab the node's name
+
+    // Build the path changes
+    if (!node) throw new Error("Node not found in tree");
+    const pathChanges = buildPathChanges(node, nodePath, null);
+    
     // Call the filesystem function to delete the item
     await deleteItem(nodePath, vaultPath);
+
+    // Update the workspace variables
+    const parentPath = nodePath.split('/').slice(0, -1).join('/');
+    updatePathReferences(pathChanges);
+    updateParentReferences(parentPath, nodeName, null, null);
 
     // Update workspace.json
     await saveWorkspaceData();

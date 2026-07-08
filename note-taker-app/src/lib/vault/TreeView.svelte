@@ -2,7 +2,7 @@
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
-    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode} from '$lib/vault/store.svelte'
+    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode, moveNode} from '$lib/vault/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
     interface Props {
@@ -96,6 +96,45 @@
         if (confirmation) await deleteNode(nodePath);
     }
 
+    // Function to handle dragging and dropping nodes
+    function handleDragStart(event: DragEvent) {
+        event.dataTransfer?.setData('text/plain', JSON.stringify({ path: node.path, kind: node.kind }));
+    }
+
+    // Function to handle drag over
+    function handleDragOver(event: DragEvent) {
+        event.preventDefault();
+    }
+
+
+    // Helper function to check if a node being dropped on itself or a descendant of itself
+    function isDescendantOrSelf(targetPath: string, draggedPath: string): boolean {
+        return targetPath === draggedPath || targetPath.startsWith(draggedPath + '/');
+    }
+
+    // Function to handle drops
+    async function handleDrop(event: DragEvent) {
+        console.log("Drop detected");
+        event.preventDefault();
+        const data = event.dataTransfer?.getData('text/plain');
+        if (!data) return;
+        const { path: draggedPath, kind: draggedKind } = JSON.parse(data);
+
+        // Guard against invalid drops
+        if (isDescendantOrSelf(node.path, draggedPath)) return;
+
+        // Move the node
+        try {
+            await moveNode(draggedPath, node.path, draggedKind);
+        } catch(e) {
+            await message(
+                e instanceof Error ? e.message : 'No vault is open',
+                { title: 'Move failed', kind: 'warning' }
+            );
+        }
+        
+    }
+
 </script>
 
 
@@ -112,7 +151,7 @@
         </div>
     {:else}
         {#if node.kind !== 'folder'}
-            <div class="node-row">
+            <div class="node-row" draggable="true" ondragstart={handleDragStart} ondragover={handleDragOver} ondrop={handleDrop}>
                 <span class="drop-down-placeholder"></span>
                 <div class="node-content">
                     <button class="leaf" onclick={handleLeafClick}>
@@ -125,7 +164,7 @@
                                     e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
                                     e.currentTarget.blur(); // unfocus without renaming
                                 }
-                            }}/>
+                            }} ondragover={(e) => e.preventDefault()} ondrop={(e) => e.preventDefault()}/>
                             <span class="input-mirror">{currentName}</span>
                         </span>
                     </button>
@@ -153,7 +192,7 @@
                                         e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
                                         e.currentTarget.blur(); // unfocus without renaming
                                     }
-                                }}/>
+                                }} ondragover={(e) => e.preventDefault()} ondrop={(e) => e.preventDefault()}/>
                                 <span class="input-mirror">{currentName}</span>
                             </span>
                         </span>

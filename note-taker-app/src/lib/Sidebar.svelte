@@ -60,7 +60,7 @@
             <h2>📌 Pinned Notes:</h2>
         </div>
         <div id="files">
-            <h2>📁 Vault files:</h2>
+            <h2>🖴 Vault files:</h2>
             <div id="folder-list">
             {#if tree}
                 <TreeView 
