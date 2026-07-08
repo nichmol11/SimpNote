@@ -29,8 +29,9 @@
     // Local reactive state to keep track of the node name for auto-sizing text inputs
     let currentName = $state(node.name);
 
-    // Variable to track if a node is being dragged over
-    let isDragOver = $state(false);
+    // Variables to track if a node is being dragged over
+    let dragOverCount = $state(0);
+    let isDragOver = $derived(dragOverCount > 0);
 
     $effect(() => {
         currentName = node.name;
@@ -123,8 +124,9 @@
 
     // Function to handle drops
     async function handleDrop(event: DragEvent) {
-        console.log("Drop detected");
+        //console.log("Drop detected");
         event.preventDefault();
+        dragOverCount = 0;
         const data = event.dataTransfer?.getData('text/plain');
         if (!data) return;
         const { path: draggedPath, kind: draggedKind } = JSON.parse(data);
@@ -197,8 +199,9 @@
                 draggable="true" 
                 ondragstart={handleDragStart} 
                 ondragover={handleDragOver} ondrop={handleDrop} 
-                ondragenter={() => isDragOver = true}
-                ondragleave={() => isDragOver = false}
+                ondragenter={() => dragOverCount++}
+                ondragleave={() => dragOverCount--}
+                ondragend={() => dragOverCount = 0}
             >
                 <span class="drop-down-placeholder">
                 {#if hasChildren}
@@ -258,11 +261,18 @@
         padding-left: calc((var(--depth) - 1) * 20px + 8px);
     }
 
+    /* Fodler row */
+    .folder-row-container {
+        background-color: white;
+    }
+
     /* Highlight style for the single active selection */
     .folder-row-container.is-selected {
         background-color: #e0f2fe; /* Light blue highlight */
         border-radius: 4px;
     }
+
+    .folder-row-container::drag 
 
     .tree-node.has-border::before {
         content: '';
@@ -276,7 +286,6 @@
 
     /* Reset button styles */
     .leaf, .folder-row, .folder-title-btn {
-        background: none;
         border: none;
         cursor: pointer;
         text-align: left;
