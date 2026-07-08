@@ -29,6 +29,9 @@
     // Local reactive state to keep track of the node name for auto-sizing text inputs
     let currentName = $state(node.name);
 
+    // Variable to track if a node is being dragged over
+    let isDragOver = $state(false);
+
     $effect(() => {
         currentName = node.name;
     });
@@ -112,6 +115,12 @@
         return targetPath === draggedPath || targetPath.startsWith(draggedPath + '/');
     }
 
+    //Function to handle drag over invalid targets (note nodes)
+    function handleDragOverInvalid(event: DragEvent) {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+    }
+
     // Function to handle drops
     async function handleDrop(event: DragEvent) {
         console.log("Drop detected");
@@ -151,20 +160,28 @@
         </div>
     {:else}
         {#if node.kind !== 'folder'}
-            <div class="node-row" draggable="true" ondragstart={handleDragStart} ondragover={handleDragOver} ondrop={handleDrop}>
+            <div class="node-row" draggable="true" ondragstart={handleDragStart}>
                 <span class="drop-down-placeholder"></span>
                 <div class="node-content">
                     <button class="leaf" onclick={handleLeafClick}>
                         {node.kind === 'pdfNote' ? '📄' : '📝'} 
                         <span class="input-wrapper">
-                            <input type="text" class="node-rename" bind:value={currentName} onblur={handleRename} onkeydown={(e) => {
-                                if (e.key === 'Enter') {
-                                    e.currentTarget.blur(); // triggers onblur, which calls handleRename
-                                } else if (e.key === 'Escape') {
-                                    e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
-                                    e.currentTarget.blur(); // unfocus without renaming
-                                }
-                            }} ondragover={(e) => e.preventDefault()} ondrop={(e) => e.preventDefault()}/>
+                            <input 
+                                type="text" 
+                                class="node-rename" 
+                                bind:value={currentName} 
+                                onblur={handleRename} 
+                                onkeydown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.currentTarget.blur(); // triggers onblur, which calls handleRename
+                                    } else if (e.key === 'Escape') {
+                                        e.currentTarget.value = node.name.replace(/\.md$/, ''); // reset
+                                        e.currentTarget.blur(); // unfocus without renaming
+                                    }
+                                }} 
+                                ondragover={(e) => handleDragOverInvalid(e)} 
+                                ondrop={(e) => e.preventDefault()}
+                            />
                             <span class="input-mirror">{currentName}</span>
                         </span>
                     </button>
@@ -172,7 +189,17 @@
                 </div>
             </div>
         {:else}
-            <div class="node-row folder-row-container" class:is-selected={selected === node.path}>
+            <div 
+                class="node-row folder-row-container" 
+                class:is-selected={selected === node.path}
+                class:is-drag-over={isDragOver}
+                role="button" 
+                draggable="true" 
+                ondragstart={handleDragStart} 
+                ondragover={handleDragOver} ondrop={handleDrop} 
+                ondragenter={() => isDragOver = true}
+                ondragleave={() => isDragOver = false}
+            >
                 <span class="drop-down-placeholder">
                 {#if hasChildren}
                     <button class="folder-row" onclick={() => toggleExpanded(node.path)}>
@@ -256,6 +283,10 @@
         padding: 0;
     }
 
+    .folder-row-container.is-drag-over {
+        background-color: #dbeafe; /* or whatever highlight color you want */
+        outline: 2px dashed #3b82f6;
+    }
 
     .leaf, .folder-title-btn {
         flex-grow: 1;
