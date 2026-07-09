@@ -2,36 +2,32 @@
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
-    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode, moveNode} from '$lib/vault/store.svelte'
+    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode, moveNode, expandFolder} from '$lib/vault/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
+    // --- Props ---
     interface Props {
         node: TreeNode;
         depth?: number;
         handleLeafClick?: () => void; 
     }
+    let { node, depth = 0, handleLeafClick }: Props = $props();
 
-    let { 
-        node, 
-        depth = 0, 
-        handleLeafClick 
-    }: Props = $props();
-
-    // Variable for expansion state of folders
+    // --- Node display state (derived from store) ---
     let expanded = $derived(isExpanded(node.path));
-
-    // Variable to track if a folder has children
+    let selected = $derived(getSelectedFolderPath());
     const hasChildren = $derived((node.children?.length ?? 0) > 0);
 
-    // Local selected folder variable
-    let selected = $derived(getSelectedFolderPath());
-
-    // Local reactive state to keep track of the node name for auto-sizing text inputs
+    // --- Rename input state ---
     let currentName = $state(node.name);
+    $effect(() => { currentName = node.name; });
 
-    // Variables to track if a node is being dragged over
+    // --- Drag-and-drop state ---
     let dragOverCount = $state(0);
     let isDragOver = $derived(dragOverCount > 0);
+    let expandTimeout: ReturnType<typeof setTimeout> | null = null;
+    let rootDragOverCount = $state(0);
+    let isRootDragOver = $derived(rootDragOverCount > 0);
 
     $effect(() => {
         currentName = node.name;
@@ -122,11 +118,33 @@
         if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
     }
 
+    // Function to handle nodes being dropped into the vault root
+    async function handleRootDrop(event: DragEvent) {
+        event.preventDefault();
+        rootDragOverCount=0;
+
+        const data = event.dataTransfer?.getData('text/plain');
+        if (!data) return;
+        const { path: draggedPath, kind: draggedKind } = JSON.parse(data);
+
+        try { // Move the node
+            await moveNode(draggedPath, "", draggedKind);
+        } catch(e) {
+            await message(
+                e instanceof Error ? e.message : 'No vault is open',
+                { title: 'Move failed', kind: 'warning' }
+            );
+        } 
+    }
+
     // Function to handle drops
     async function handleDrop(event: DragEvent) {
-        //console.log("Drop detected");
         event.preventDefault();
         dragOverCount = 0;
+        if (expandTimeout) { // reset the folder autoexpand timer
+            clearTimeout(expandTimeout);
+            expandTimeout = null;
+        }
         const data = event.dataTransfer?.getData('text/plain');
         if (!data) return;
         const { path: draggedPath, kind: draggedKind } = JSON.parse(data);
@@ -142,8 +160,7 @@
                 e instanceof Error ? e.message : 'No vault is open',
                 { title: 'Move failed', kind: 'warning' }
             );
-        }
-        
+        }  
     }
 
 </script>
@@ -160,6 +177,15 @@
                 />
             {/each}
         </div>
+        <div 
+            class="root-drop-zone"
+            class:is-drag-over={isRootDragOver}
+            role="button"
+            ondragover={(e) => e.preventDefault()}
+            ondrop={handleRootDrop}
+            ondragenter={() => rootDragOverCount++}
+            ondragleave={() => rootDragOverCount--}
+        ></div>
     {:else}
         {#if node.kind !== 'folder'}
             <div class="node-row" draggable="true" ondragstart={handleDragStart}>
@@ -199,9 +225,29 @@
                 draggable="true" 
                 ondragstart={handleDragStart} 
                 ondragover={handleDragOver} ondrop={handleDrop} 
-                ondragenter={() => dragOverCount++}
-                ondragleave={() => dragOverCount--}
-                ondragend={() => dragOverCount = 0}
+                ondragenter={() => {
+                    dragOverCount++;
+                    if (!expandTimeout) { // only start a timer if one isn't already running
+                        expandTimeout = setTimeout(() => {
+                            expandFolder(node.path);
+                            expandTimeout = null;
+                        }, 800);
+                    }
+                }}
+                ondragleave={() => {
+                    dragOverCount--;
+                    if (dragOverCount === 0 && expandTimeout) {
+                        clearTimeout(expandTimeout);
+                        expandTimeout = null;
+                    }
+                }}
+                ondragend={() => {
+                    dragOverCount = 0;
+                    if (expandTimeout) {
+                        clearTimeout(expandTimeout);
+                        expandTimeout = null;
+                    }
+                }}
             >
                 <span class="drop-down-placeholder">
                 {#if hasChildren}
@@ -269,10 +315,8 @@
     /* Highlight style for the single active selection */
     .folder-row-container.is-selected {
         background-color: #e0f2fe; /* Light blue highlight */
-        border-radius: 4px;
+        border-radius: 3px;
     }
-
-    .folder-row-container::drag 
 
     .tree-node.has-border::before {
         content: '';
@@ -280,8 +324,22 @@
         top: 0;
         bottom: 0;
         width: 1px;
-        background-color: gray;
+        /*background-color: gray;*/
         left: calc((var(--depth) - 2) * 20px + 14px); 
+    }
+
+    .root-drop-zone {
+        height: 24px;
+        border-radius: 3px;
+        background-color: transparent;
+        border: 1px dashed transparent;
+        transition: all 0.15s ease;
+    }
+
+    .root-drop-zone.is-drag-over {
+        height: 24px;
+        background-color: #dbeafe;
+        border: 2px dashed #3b82f6;
     }
 
     /* Reset button styles */
@@ -293,8 +351,11 @@
     }
 
     .folder-row-container.is-drag-over {
-        background-color: #dbeafe; /* or whatever highlight color you want */
+        background-color: #dbeafe;
         outline: 2px dashed #3b82f6;
+        border-radius: 3px;
+        position: relative;
+        z-index: 1;
     }
 
     .leaf, .folder-title-btn {
