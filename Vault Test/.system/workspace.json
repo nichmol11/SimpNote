@@ -1,5 +1,7 @@
 {
-  "order": {},
+  "order": {
+    "": ["Testing!", "My notes"]
+},
   "lastOpened": null,
   "pinned": [],
   "noteState": {}

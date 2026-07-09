@@ -367,3 +367,34 @@ export async function deleteNode(nodePath: string) {
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);
 }
+
+// Functuion that returns the effective order of children names for a folder: checking saved order in workspace or falling back to alphabetical order no saved order exists
+export function getEffectiveOrder(parentPath: string, allNames: string[]): string[] {
+    // Get the order list
+    const orderList = order[parentPath];
+    if (!orderList) return [...allNames].sort((a, b) => a.localeCompare(b)); // alphabetical fallback
+
+    const remaining = new Set(allNames);
+    const ordered: string[] = [];
+    for (const name of orderList) {
+        if (remaining.has(name)) {
+            ordered.push(name);
+            remaining.delete(name);
+        }
+    }
+    ordered.push(...[...remaining].sort((a, b) => a.localeCompare(b)));
+    return ordered;
+}
+
+// Function to reorder nodes in a folder by moving a node to a new order index
+export async function reorderNode(parentPath: string, allNames: string[], nodeName: string, targetIndex: number): Promise<void> {
+    let currOrder = getEffectiveOrder(parentPath, allNames);
+    
+    const idx = currOrder.indexOf(nodeName);
+    if (idx === -1) throw new Error("Node not found");
+    currOrder.splice(idx, 1); // remove from old position
+    currOrder.splice(targetIndex, 0, nodeName); // insert at new position
+
+    order[parentPath] = currOrder; // write back to state
+    await saveWorkspaceData(); // save to workspace.json
+}

@@ -2,7 +2,7 @@
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
-    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, renameNode, deleteNode, moveNode, expandFolder} from '$lib/vault/store.svelte'
+    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, getOrder, getEffectiveOrder, renameNode, deleteNode, moveNode, expandFolder} from '$lib/vault/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
     // --- Props ---
@@ -41,29 +41,13 @@
     }
 
     // Function to reorganise nodes according to order
-    function applyOrder(children: TreeNode[], orderList: string[] | undefined): TreeNode[] {
-        if (!orderList) return children; // If not order information saved, return unchanged
-        
-        // Order items by name for comparison
+    function applyOrder(children: TreeNode[]): TreeNode[] {
+        const names = children.map(c => c.name);
+        const orderedNames = getEffectiveOrder(node.path, names);
         const byName = new Map(children.map(c => [c.name, c]));
-
-        const ordered: TreeNode[] = []; // Ordered list
-
-        for (const name of orderList) {
-            const match = byName.get(name);
-            if (match) {
-                // If a match is found, add the node to ordered list
-                ordered.push(match);
-                byName.delete(name);
-            }
-            // Names in orderlist that no longer exist on disk are dropped
-        }
-
-        // Remaining items in byName that were not saved in orderList are appended in alphabetical order
-        ordered.push(...[...byName.values()].sort((a, b) => a.name.localeCompare(b.name)));
-        return ordered;
+        return orderedNames.map(name => byName.get(name)!);
     }
-    
+        
     // Function to handle renaming of nodes
     async function handleRename(event: Event) {
         const target = event.target as HTMLInputElement | null;
@@ -169,7 +153,7 @@
 <div class="tree-node {depth > 1 ? 'has-border' : ''}" style="--depth: {depth}">
     {#if depth === 0}
         <div class="children">
-            {#each node.children ?? [] as child (child.path)}
+            {#each applyOrder(node.children ?? [], getOrder()[""]) as child (child.path)}
                 <TreeView 
                     node={child} 
                     depth={depth + 1} 
@@ -279,7 +263,7 @@
 
             {#if expanded}
                 <div class="children">
-                    {#each node.children ?? [] as child (child.path)}
+                    {#each applyOrder(node.children ?? [], getOrder()[node.path]) as child (child.path)}
                         <TreeView 
                             node={child} 
                             depth={depth + 1} 
