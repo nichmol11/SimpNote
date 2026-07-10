@@ -13,6 +13,7 @@ import {
     readWorkspace,
     writeWorkspace, 
 } from '$lib/vault/fileSystem';
+import { getBaseName } from './pathUtils';
 import { validateNodeName } from '$lib/vault/validation';
 
 // Define state variables
@@ -271,8 +272,7 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
     if (validationError) throw new Error(validationError);
 
     // If the name is unchanged, return early
-    const currentName = nodePath.split('/').at(-1) ?? '';
-    const currentBaseName = currentName.replace(/\.md$/, '');
+    const currentBaseName = getBaseName(nodePath);
     if (newName.trim() === currentBaseName) return;
 
     // Derive the new path
@@ -293,7 +293,7 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
 
     // Update thew workspace variables
     updatePathReferences(pathChanges);
-    updateParentReferences(parentPath, currentName, parentPath, newName + (kind === 'plainNote' ? '.md' : ''));
+    updateParentReferences(parentPath, currentBaseName, parentPath, newName.trim());
 
     // Save updates to workspace.json
     await saveWorkspaceData();
@@ -313,8 +313,7 @@ export async function moveNode(nodePath: string, newParentPath: string, kind: No
     if (oldParentPath == newParentPath) return;
 
     // Derive the new path
-    const nodeName = nodePath.split('/').at(-1) ?? '';
-    const nodeBaseName = nodeName.replace(/\.md$/, '');
+    const nodeBaseName = getBaseName(nodePath);
     const newPath = newParentPath
         ? `${newParentPath}/${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`
         : `${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`;
@@ -331,7 +330,7 @@ export async function moveNode(nodePath: string, newParentPath: string, kind: No
 
     // Update the workspace variables
     updatePathReferences(pathChanges);
-    updateParentReferences(oldParentPath, nodeBaseName + (kind === 'plainNote' ? '.md' : ''), newParentPath, nodeBaseName + (kind === 'plainNote' ? '.md' : ''));
+    updateParentReferences(oldParentPath, nodeBaseName, newParentPath, nodeBaseName);
 
     // Save updates to workspace.json
     await saveWorkspaceData();
@@ -347,7 +346,7 @@ export async function deleteNode(nodePath: string) {
 
     // Find the node to be deleted in the current tree
     const node = findNodeByPath(tree, nodePath);
-    const nodeName = nodePath.split('/').at(-1) ?? ''; // Grab the node's name
+    const nodeName = getBaseName(nodePath)// Grab the node's name
 
     // Build the path changes
     if (!node) throw new Error("Node not found in tree");
@@ -391,10 +390,14 @@ export async function reorderNode(parentPath: string, allNames: string[], nodeNa
     let currOrder = getEffectiveOrder(parentPath, allNames);
     
     const idx = currOrder.indexOf(nodeName);
-    if (idx === -1) throw new Error("Node not found");
-    currOrder.splice(idx, 1); // remove from old position
+    if (idx !== -1) {
+        currOrder.splice(idx, 1); // remove from old position
+    }
     currOrder.splice(targetIndex, 0, nodeName); // insert at new position
 
     order[parentPath] = currOrder; // write back to state
     await saveWorkspaceData(); // save to workspace.json
+
+    //DEBUG
+    console.log(allNames);
 }

@@ -2,6 +2,8 @@
 <script lang="ts">
     import type { TreeNode } from '$lib/vault/types';
     import TreeView from './TreeView.svelte';
+    import DropGap from './DropGap.svelte';
+    import { isDescendantOrSelf } from './pathUtils';
     import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, getOrder, getEffectiveOrder, renameNode, deleteNode, moveNode, expandFolder} from '$lib/vault/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
@@ -90,12 +92,6 @@
         event.preventDefault();
     }
 
-
-    // Helper function to check if a node being dropped on itself or a descendant of itself
-    function isDescendantOrSelf(targetPath: string, draggedPath: string): boolean {
-        return targetPath === draggedPath || targetPath.startsWith(draggedPath + '/');
-    }
-
     //Function to handle drag over invalid targets (note nodes)
     function handleDragOverInvalid(event: DragEvent) {
         event.preventDefault();
@@ -152,14 +148,18 @@
 
 <div class="tree-node {depth > 1 ? 'has-border' : ''}" style="--depth: {depth}">
     {#if depth === 0}
+        {@const orderedChildren = applyOrder(node.children ?? [])}
+        {@const names = orderedChildren.map(c => c.name)}
         <div class="children">
-            {#each applyOrder(node.children ?? [], getOrder()[""]) as child (child.path)}
+            {#each orderedChildren as child, i (child.path)}
+                <DropGap parentPath="" targetIndex={i} allNames={names} />
                 <TreeView 
                     node={child} 
                     depth={depth + 1} 
                     {handleLeafClick}
                 />
             {/each}
+            <DropGap parentPath="" targetIndex={orderedChildren.length} allNames={names} />
         </div>
         <div 
             class="root-drop-zone"
@@ -262,20 +262,23 @@
             </div>
 
             {#if expanded}
+                {@const orderedChildren = applyOrder(node.children ?? [])}
+                {@const names = orderedChildren.map(c => c.name)}
                 <div class="children">
-                    {#each applyOrder(node.children ?? [], getOrder()[node.path]) as child (child.path)}
+                    {#each orderedChildren as child, i (child.path)}
+                        <DropGap parentPath={node.path} targetIndex={i} allNames={names} />
                         <TreeView 
                             node={child} 
                             depth={depth + 1} 
                             {handleLeafClick}
                         />
                     {/each}
+                    <DropGap parentPath={node.path} targetIndex={orderedChildren.length} allNames={names} />
                 </div>
             {/if}
         {/if}
     {/if}
 </div>
-
 
 <style>
     /* Required for absolute positioning of the border element */
