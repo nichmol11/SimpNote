@@ -8,9 +8,10 @@
     note: string;
     pageProxy: PDFPageProxy;
     showMarkdown: boolean;
+    onNoteUpdate: (newText: string) => void;
   }
 
-  let { id, note = $bindable(), pageProxy, showMarkdown }: Props = $props();
+  let { id, note = $bindable(), pageProxy, showMarkdown, onNoteUpdate }: Props = $props();
 
   let canvas: HTMLCanvasElement;
   let displayWidth = $state(550);
@@ -67,6 +68,11 @@
     }
   }
 
+  function handleInput(e: Event) {
+    const target = e.target as HTMLTextAreaElement;
+    onNoteUpdate(target.value); // Bubbles the change to the parent
+  }
+
 </script>
 
 <section class="page-row">
@@ -86,7 +92,11 @@
         {@html renderMarkdown(note)}
       </div>
     {:else}
-      <textarea bind:value={note} placeholder="Notes for page {id}..."></textarea>
+      <textarea 
+        value={note} 
+        oninput={handleInput} 
+        placeholder="Notes for page {id}..."
+      ></textarea>
     {/if}
   </div>
 </section>

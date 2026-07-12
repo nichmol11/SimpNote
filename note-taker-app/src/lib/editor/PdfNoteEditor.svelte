@@ -95,13 +95,13 @@ async function parsePdfDocument(arrayBuffer: ArrayBuffer, meta: PdfNotes) {
 <div class="pdf-note-layout">
     {#if pages.length > 0}
         {#each pages as item (item.id)}
-            <PageRow 
-                id={item.id} 
-                note={item.note} 
-                pageProxy={item.pageProxy} 
-                showMarkdown={showMarkdownAll} 
-                onNoteUpdate={(newText) => handlePageNoteInput(item.id, newText)}
-            />
+        <PageRow 
+            id={item.id} 
+            note={item.note} 
+            pageProxy={item.pageProxy} 
+            showMarkdown={showMarkdownAll} 
+            onNoteUpdate={(newText) => handlePageNoteInput(item.id, newText)} 
+        />
         {/each}
     {:else}
         <div class="loading-state"><p>Streaming document data blocks...</p></div>
