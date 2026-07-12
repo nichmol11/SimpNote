@@ -1,9 +1,10 @@
 // src/lib/vault/fileSystem.ts
 
 import { open, message } from '@tauri-apps/plugin-dialog';
-import { readDir, mkdir, exists, rename, remove, writeTextFile, readTextFile} from '@tauri-apps/plugin-fs'
+import { readDir, mkdir, exists, rename, remove, writeTextFile, readTextFile, copyFile, readFile} from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
 import { db } from '$lib/db';
+import type { PdfNotes } from './types';
 
 // Function to allow the user to select the folder for their note vault
 export async function pickVaultDirectory(): Promise<string | null> {
@@ -125,4 +126,115 @@ export async function writeWorkspace(vaultPath: string, data: any): Promise<void
     } catch (error) {
         console.error("Failed to write workspace.json:", error);
     }
+}
+
+// Function to create a new plain note
+export async function createPlainNote(relativeParentPath: string, vaultPath: string): Promise<string> {
+    const parentPath = await getFullPath(relativeParentPath, vaultPath);
+    const baseName = 'New Note';
+
+    // Prevent name collisons
+    for (let i = 0; ; i++) {
+        const name = i === 0 ? baseName : `${baseName} ${i}`;
+        const fullPath = parentPath.endsWith('/') || parentPath.endsWith('\\')
+            ? `${parentPath}${name}.md`
+            : `${parentPath}/${name}.md`;
+
+        if (!(await exists(fullPath))) {
+            await writeTextFile(fullPath, ''); // create empty note
+            // return the relative path so the store knows what was created
+            return relativeParentPath ? `${relativeParentPath}/${name}.md` : `${name}.md`;
+        }
+    }
+}
+
+// Function to read plain note content from disk
+export async function readPlainNote(relativePath: string, vaultPath: string): Promise<string | null> {
+    const notePath = await getFullPath(relativePath, vaultPath);
+    try {
+        if (await exists(notePath)) {
+            const contents = await readTextFile(notePath);
+            return contents;
+        }
+    } catch (error) {
+        console.error("Failed to read note:", error);
+    }
+    return null;
+}
+
+// Function to write plain note contents to disk (creates the file if it doesn't exist)
+export async function writePlainNote(relativePath: string, vaultPath: string, noteContents: string): Promise<void> {
+    const notePath = await getFullPath(relativePath, vaultPath);
+    await writeTextFile(notePath, noteContents); // let errors propagate to the caller
+}
+
+// Function to create a new PDF note
+export async function createPDFNote(relativeParentPath: string, vaultPath: string, sourcePDFPath: string): Promise<string> {
+    const parentPath = await getFullPath(relativeParentPath, vaultPath);
+    const baseName = 'New Note';
+    
+    // Prevent name collisons
+    for (let i = 0; ; i++) {
+        const name = i === 0 ? baseName : `${baseName} ${i}`;
+        const fullPath = parentPath.endsWith('/') || parentPath.endsWith('\\')
+            ? `${parentPath}${name}`
+            : `${parentPath}/${name}`;
+
+        if (!(await exists(fullPath))) {
+            await mkdir(fullPath); // create note bundle folder
+            const newPDFPath = fullPath + "/source.pdf";
+            await copyFile(sourcePDFPath, newPDFPath); // Copy the source PDF
+            const noteFullPath = fullPath + "/notes.json";
+            await writeTextFile(noteFullPath, '{}')
+            // return the relative path so the store knows what was created
+            return relativeParentPath ? `${relativeParentPath}/${name}` : `${name}`;
+        } // let errors prropogate to caller
+    }
+}
+
+// Function to read PDF note data (notes.json) from disk
+export async function readPDFNote(relativePath: string, vaultPath: string): Promise<{ pdfData: ArrayBuffer; notes: PdfNotes } | null> {
+    const noteDirectory = await getFullPath(relativePath, vaultPath);
+    
+    // Adjust these filenames if your createPDFNote function uses a different convention
+    const jsonPath = `${noteDirectory}/notes.json`; 
+    const pdfPath = `${noteDirectory}/source.pdf`;
+
+    try {
+        if (await exists(jsonPath) && await exists(pdfPath)) {
+            const jsonContents = await readTextFile(jsonPath);
+            const notes: PdfNotes = JSON.parse(jsonContents);
+
+            const rawBinary = await readFile(pdfPath);
+            
+            return {
+                pdfData: rawBinary.buffer,
+                notes: notes
+            };
+        }
+    } catch (error) {
+        console.error("Failed to read packed PDF note bundle structures:", error);
+    }
+    return null;
+}
+
+// Function to write PDF note data (notes.json) to disk (creates the file if it doesn't exist)
+export async function writePDFNote(relativePath: string, vaultPath: string, noteData: any): Promise<void> {
+    const noteDirectory = await getFullPath(relativePath, vaultPath);
+    // Append the notes.json file target explicitly inside the bundle container
+    const targetFilePath = `${noteDirectory}/notes.json`;
+    
+    const noteContents = JSON.stringify(noteData, null, 2);
+    await writeTextFile(targetFilePath, noteContents); 
+}
+
+// Function to allow the user to select a PDF file to import
+export async function pickPdfFile(): Promise<string | null> {
+    const file: string | null = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    });
+
+    return file;
 }

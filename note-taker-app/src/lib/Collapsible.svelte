@@ -2,10 +2,11 @@
 
   interface Props {
     title?: string;
+    icon?: string;
     children?: import('svelte').Snippet;
   }
 
-  let { title = "Click to expand", children }: Props = $props();
+  let { title = "Click to expand", icon = "🚫", children }: Props = $props();
   
   let isOpen = $state(true);
 
@@ -16,8 +17,9 @@
 
 <div class="collapsible-container" class:expanded={isOpen}>
   <button class="header" onclick={toggle} aria-expanded={isOpen}>
+    <span>{icon}</span>
     <span>{title}</span>
-    <span class="arrow">{isOpen ? '▲' : '▼'}</span>
+    <span class="arrow" title={isOpen ? 'collapse' : 'expand'}>{isOpen ? '▲' : '▼'}</span>
   </button>
 
   {#if isOpen && children}

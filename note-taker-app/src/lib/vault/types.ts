@@ -10,7 +10,7 @@ export interface TreeNode {
 }
 
 export interface PdfNotes {
-    pdfFile: string; // filename of the PDF in this folder
+    noteName: string; // name of the note bundle
     pages: Record<string, { text: string }>; // keyed by page number as string
 }
 

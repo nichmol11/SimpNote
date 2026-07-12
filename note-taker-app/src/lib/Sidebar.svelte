@@ -1,7 +1,8 @@
 <script lang="ts">
     import { onMount, getContext } from 'svelte';
     import TreeView from './vault/TreeView.svelte';
-    import { getTree, getVaultPath, openVault, getIsRestoring, addNewFolder} from '$lib/vault/store.svelte';
+    import PinnedList from './vault/PinnedList.svelte';
+    import { toggleSidebar, getTree, getVaultPath, openVault, getIsRestoring, addNewFolder, addPlainNote, addPDFNote, getIsSidearOpen} from '$lib/vault/store.svelte';
 	import Collapsible from './Collapsible.svelte';
 
     let tree = $derived(getTree());
@@ -13,12 +14,8 @@
         vaultPath ? vaultPath.split('/').filter(Boolean).pop() || '' : ''
     );
 
-    interface Props {
-        isSidebarOpen: boolean;
-        toggleSidebar: () => void;
-    }
-
-    const { isSidebarOpen, toggleSidebar }: Props = $props();
+    let isSidebarOpen: boolean = $derived(getIsSidearOpen());
+    
     const navbarContext = getContext<any>('navbar');
 
 
@@ -30,9 +27,6 @@
         // You can now read `currentlySelectedFolderPath` when adding new nodes!
     }
 
-    // PLACEHOLDERS - MOVE TO vault/store.svelte.ts
-    function addNewPDFNote() { console.log("Add PDF note"); }
-    function addNewPlainNote() { console.log("Add plain note"); }
 
 </script>
 
@@ -54,17 +48,17 @@
                 </div>
             {/if}
         </div>
-        <Collapsible title="🔁 Last Opened:">
+        <Collapsible icon="🔁" title="Last Opened">
             <div id="last-opened">
                 <p>Place holder</p>        
             </div>
         </Collapsible>
-        <Collapsible title="📌 Pinned Notes:">
+        <Collapsible icon="📌" title="Pinned Notes">
             <div id="pinned">
-                <p>Place holder</p>        
+                <PinnedList></PinnedList>    
             </div>
         </Collapsible>
-        <Collapsible title="🖴 Vault files:">
+        <Collapsible icon="🖴" title="Vault files">
             <div id="files">
                 <div id="folder-list">
                 {#if tree}
@@ -83,12 +77,12 @@
                 <span>➕</span><span>New Folder</span><span>📁</span>
             </div>
         </button>
-        <button class="add-node-btn" onclick={() => addNewPDFNote()}>
+        <button class="add-node-btn" onclick={() => addPDFNote()}>
             <div class="add-node-btn-content">
                 <span>➕</span><span>New PDF Note</span><span>📄</span>
             </div>
         </button>
-        <button class="add-node-btn" onclick={() => addNewPlainNote()}>
+        <button class="add-node-btn" onclick={() => addPlainNote()}>
             <div class="add-node-btn-content">
                 <span>➕</span><span>New Plain Note</span><span>📝</span>
             </div>
@@ -99,14 +93,16 @@
 <style>
     #sidebar {
         position: fixed;
-        top: 40px; left: 0;
-        height: 100%; width: 300px;
+        top: 40px; 
+        left: 0;
+        height: calc(100% - 40px); 
+        width: 300px;
         padding: 16px;
         background-color: #f9f9f9;
         border-right: 1px solid #ddd;
         transition: transform 0.3s ease;
         z-index: 99;
-        overflow-y: auto;
+        overflow-y: scroll;
         margin-top: 0;
     }
 

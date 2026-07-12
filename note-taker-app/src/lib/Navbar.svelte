@@ -5,18 +5,14 @@
     import appIcon from '$lib/img/icon_64x64.png';
     import saveIcon from '$lib/img/save-icon.svg';
     import saveEnabledIcon from '$lib/img/save-enabled-icon.svg';
+	import { getBaseName } from './vault/pathUtils';
+	import { getCurrentNotePath, toggleSidebar } from './vault/store.svelte';
+ 
 
-    // Define props
-    export let onUpload: () => void;
-    export let onCreateTextNote: () => void;
-    export let onRemove: () => void;
-    export let toggleSidebar: () => void;
-    export let onSave: () => void;
-    export let isSaving: boolean = false;
-    export let hasAutosaveEnabled: boolean = false;
-    export let currentFileName: string = "No note selected";
-    let isWindowMaximized = false;
-    let isWindowFullscreen = false;
+    let currentNotePath = $derived(getCurrentNotePath());
+
+    let isWindowMaximized = $state(false);
+    let isWindowFullscreen = $state(false);
 
     function handleUploadClick() {
         onUpload();
@@ -98,57 +94,24 @@
 
 <nav class="navbar">
     <div class="nav-content" data-tauri-drag-region>
-        <button id="sidebar-toggle" data-tauri-drag-region="false" on:click={toggleSidebar} title="Toggle Sidebar">
+        <button id="sidebar-toggle" data-tauri-drag-region="false" onclick={toggleSidebar} title="Toggle Sidebar">
             <img src={sidebarIcon} alt="sidebar button"/>
         </button>
         
-        <!-- <div class="file-section" data-tauri-drag-region="false">
-            {#if currentFileName === "No note selected"}
-                <button class="custom-upload-btn" on:click={handleUploadClick}>Import PDF</button>
-                <button class="custom-upload-btn text-note-btn" on:click={createTextNote}>New Text Note</button>
+        <h1 class="note-title-name">
+            {#if currentNotePath}
+                {getBaseName(currentNotePath)}
             {:else}
-                <button class="custom-upload-btn disabled" disabled>Import PDF</button>
-                <button class="custom-upload-btn text-note-btn disabled" disabled>New Text Note</button>
+                No note is open - create or open a note!
             {/if}
-            
-            <span class="file-name">{currentFileName}</span>
-            
-            {#if currentFileName !== "No note selected"}
-                <button class="remove-btn" on:click={removePDF}>
-                    {#if hasAutosaveEnabled}
-                        Close note
-                    {:else}
-                        Remove note
-                    {/if}
-                </button>
-            {/if}
-        </div>
-        
-        <div class="navigation-options" data-tauri-drag-region="false">
-            {#if isSaving}
-                <span class="save-indicator">Saving...</span>
-            {/if}
-            <button
-                type="button"
-                class="save-btn"
-                class:autosave-enabled={hasAutosaveEnabled}
-                on:click={onSave}
-                title={hasAutosaveEnabled ? "Autosave enabled" : "Save notes"}
-            >
-                <img
-                    src={hasAutosaveEnabled ? saveEnabledIcon : saveIcon}
-                    alt={hasAutosaveEnabled ? "autosave enabled" : "save button"}
-                />
-            </button>
-        </div> -->
-
+        </h1>
         <div class="drag-region"></div>
 
         <div class="window-controls" aria-label="Window controls" data-tauri-drag-region="false">
             <button
                 type="button"
                 class="window-btn utility"
-                on:click={handleMinimizeOrRestore}
+                onclick={handleMinimizeOrRestore}
                 title={isWindowFullscreen ? "Restore from fullscreen" : "Minimize"}
             >
                 {isWindowFullscreen ? "❐" : "−"}
@@ -156,12 +119,12 @@
             <button
                 type="button"
                 class="window-btn utility"
-                on:click={toggleMaximizeWindow}
+                onclick={toggleMaximizeWindow}
                 title={isWindowMaximized ? "Restore" : "Maximize"}
             >
                 {isWindowMaximized ? "❐" : "□"}
             </button>
-            <button type="button" class="window-btn close" on:click={closeWindow} title="Close">×</button>
+            <button type="button" class="window-btn close" onclick={closeWindow} title="Close">×</button>
         </div>
     </div>
 </nav>

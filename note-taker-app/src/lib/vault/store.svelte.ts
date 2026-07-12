@@ -1,7 +1,7 @@
 // src/lib/vault/store.svelte.ts
 
 import { invoke } from '@tauri-apps/api/core';
-import type { NodeKind, TreeNode, NoteState, Workspace } from './types';
+import type { NodeKind, TreeNode, NoteState, Workspace, PdfNotes } from './types';
 import { 
     pickVaultDirectory, 
     getStoredVaultPath, 
@@ -11,7 +11,15 @@ import {
     renameItem, 
     deleteItem,
     readWorkspace,
-    writeWorkspace, 
+    writeWorkspace,
+    createPlainNote,
+    readPlainNote,
+    writePlainNote,
+    createPDFNote,
+    readPDFNote,
+    writePDFNote,
+    pickPdfFile,
+
 } from '$lib/vault/fileSystem';
 import { getBaseName } from './pathUtils';
 import { validateNodeName } from '$lib/vault/validation';
@@ -23,9 +31,14 @@ let lastOpened = $state<string | null>(null); // Variable to keep track of the m
 let pinned = $state<string[]>([]); // Variable to hold the paths of the notes pinned by the user
 let noteState = $state<Record<string, NoteState>>({}); // Variable to track where the user has scrolled to on each note - keyed by vault-relative path
 let isRestoring = $state(true); // Variable to check if vault needs to be restored on startup
+let isSidebarOpen: boolean = $state(true); // Variable to track if sidebar is open
 let vaultPath = $state<string | null>(null); // Variable to keep track of the current vault path
 let selectedFolderPath = $state<string | null>(null); // Variable to keep track of the selected folder
 let expandedFolders = $state(new Set<string>()); // Variable to keep track of which folders are expanded in the viewer
+let currentNotePath = $state<string | null>(null); // variable to hold the path of the current open note
+let currentNoteContent = $state<string | PdfNotes | null>(null); // variable to hold note content - string for plain, record for PDF
+let currentNoteKind = $state<NodeKind | null>(null); // variable to hold the current note kind
+let currentPdfBinary = $state<ArrayBuffer | null>(null); // variable to hold current PDF data as binary array buffer when a PDF note is open
 
 // Getter functions for state variables
 export function getTree() { return tree; }
@@ -34,13 +47,23 @@ export function getLastOpened() { return lastOpened; }
 export function getPinned() { return pinned; }
 export function getNoteState() { return noteState; }
 export function getIsRestoring() { return isRestoring; }
+export function getIsSidearOpen() { return isSidebarOpen; }
 export function getVaultPath() { return vaultPath; }
 export function getSelectedFolderPath() { return selectedFolderPath; }
+export function getCurrentNotePath() { return currentNotePath; }
+export function getCurrentNoteContent() { return currentNoteContent; }
+export function getCurrentNoteKind() { return currentNoteKind; }
+export function getCurrentPdfBinary() { return currentPdfBinary; }
 
 // Function to build the tree from vault folder
 export async function loadVaultTree(path: string) {
     // console.log("loadVaultTree called with path: " + path); // DEBUG
     tree = await invoke<TreeNode | null>('build_tree_command', { vaultPath: path });
+}
+
+// Function to toggle the sidebar
+export function toggleSidebar() {
+    isSidebarOpen = !isSidebarOpen;
 }
 
 // Function to return a given node in the tree based on a bath
@@ -205,6 +228,32 @@ async function saveWorkspaceData() {
     };
 
     await writeWorkspace(vaultPath, workspaceData); // write the data to workspace.json
+}
+
+// Function to check if a note is pinned by its path
+export function isPinned(path: string) {
+    return pinned.includes(path);
+}
+
+// Function to add a note to pinned
+export async function addToPinned(path: string) {
+    if (!isPinned(path)) {
+        pinned.push(path);
+        await saveWorkspaceData(); 
+    } else {
+        throw new Error ("Path is already in pinned");
+    }
+}
+
+// Function to remove a note from pinned
+export async function removeFromPinned(path: string) {
+    const idx = pinned.indexOf(path);
+    if (idx > -1) {
+        pinned.splice(idx, 1);
+        await saveWorkspaceData();
+    } else {
+        throw new Error ("Path is not in pinned")
+    }
 }
 
 
@@ -397,7 +446,131 @@ export async function reorderNode(parentPath: string, allNames: string[], nodeNa
 
     order[parentPath] = currOrder; // write back to state
     await saveWorkspaceData(); // save to workspace.json
+}
 
-    //DEBUG
-    console.log(allNames);
+// Function to create a new  plain note
+export async function addPlainNote() {
+        // Check if vault is open
+    if (!vaultPath) {
+        throw new Error("No vault is open");
+    }
+    
+    // If no folder is selected, default to the vault root
+    const parentPath = selectedFolderPath ?? ""; // Empty defaults to root since path is relative
+
+    // Expand the parent folder automatically
+    expandFolder(parentPath);
+
+    // Create a new folder within
+    const newNotePath = await createPlainNote(parentPath, vaultPath);
+
+    // Update workspace.json
+    await saveWorkspaceData();
+
+    // Rebuild the tree
+    await loadVaultTree(vaultPath);
+
+    // Automatically open the note
+    await openPlainNote(newNotePath);
+}
+
+// Function to create a new  PDF note
+export async function addPDFNote() {
+    // Check if vault is open
+    if (!vaultPath) {
+        throw new Error("No vault is open");
+    }
+    
+    // Get source PDF path
+    const sourcePDF = await pickPdfFile();
+    if (!sourcePDF) {
+        console.log("No PDF selected");
+        return;
+    }
+    // If no folder is selected, default to the vault root
+    const parentPath = selectedFolderPath ?? ""; // Empty defaults to root since path is relative
+
+    // Expand the parent folder automatically
+    expandFolder(parentPath);
+
+    // Create a new folder within
+    const newNotePath = await createPDFNote(parentPath, vaultPath, sourcePDF);
+
+    // Update workspace.json
+    await saveWorkspaceData();
+
+    // Rebuild the tree
+    await loadVaultTree(vaultPath);
+
+    // Automatically open the note
+    await openPDFNote(newNotePath);
+}
+
+// Function to open a note, dispatching to the correct handler based on kind
+export async function openNote(path: string, kind: NodeKind): Promise<void> {
+    if (kind === 'plainNote') {
+        await openPlainNote(path);
+    } else if (kind === 'pdfNote') {
+        await openPDFNote(path);
+    }
+}
+
+// Function to open a plain note
+export async function openPlainNote(path: string): Promise<void> {
+    if (!vaultPath) { // Check if vault is open
+        throw new Error("No vault is open");
+    }
+
+    let content = await readPlainNote(path, vaultPath);
+
+    // Update current note state variables
+    currentNotePath = path;
+    currentNoteContent = content ?? '';
+    currentNoteKind = 'plainNote';
+
+    // Update workspace
+    lastOpened = path;
+    saveWorkspaceData();
+
+}
+
+export async function savePlainNote(path: string, content: string) {
+    if (!vaultPath) { // Check if vault is open
+        throw new Error("No vault is open");
+    }
+
+    await writePlainNote(path, vaultPath, content);
+
+    saveWorkspaceData() // for when persisting current position is added
+}
+
+// Function to open a PDF note
+export async function openPDFNote(path: string): Promise<void> {
+    if (!vaultPath) throw new Error("No vault is open");
+
+    const bundle = await readPDFNote(path, vaultPath);
+
+    if (bundle) {
+        currentNotePath = path;
+        currentNoteKind = 'pdfNote';
+        
+        // Store the exact typed PdfNotes object in your existing state target
+        currentNoteContent = bundle.notes;
+        
+        // Keep the binary buffer safe in our separate getter
+        currentPdfBinary = bundle.pdfData;
+
+        lastOpened = path;
+        await saveWorkspaceData();
+    }
+}
+
+// Function to save a PDF note
+export async function savePDFNote(path: string, updatedNotes: PdfNotes) {
+    if (!vaultPath) throw new Error("No vault is open");
+
+    // Persist the updated JSON note structure back to disk
+    await writePDFNote(path, vaultPath, updatedNotes);
+    
+    await saveWorkspaceData();
 }

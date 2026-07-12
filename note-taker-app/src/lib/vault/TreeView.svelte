@@ -4,16 +4,29 @@
     import TreeView from './TreeView.svelte';
     import DropGap from './DropGap.svelte';
     import { isDescendantOrSelf } from './pathUtils';
-    import { isExpanded, toggleExpanded, selectFolder, getSelectedFolderPath, getOrder, getEffectiveOrder, renameNode, deleteNode, moveNode, expandFolder} from '$lib/vault/store.svelte'
+    import { isExpanded,
+        toggleExpanded,
+        selectFolder,
+        getSelectedFolderPath, 
+        getOrder, 
+        getEffectiveOrder,
+        isPinned,
+        addToPinned,
+        removeFromPinned,
+        renameNode,
+        deleteNode,
+        moveNode,
+        expandFolder,
+        openNote
+    } from '$lib/vault/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
     // --- Props ---
     interface Props {
         node: TreeNode;
         depth?: number;
-        handleLeafClick?: () => void; 
     }
-    let { node, depth = 0, handleLeafClick }: Props = $props();
+    let { node, depth = 0, }: Props = $props();
 
     // --- Node display state (derived from store) ---
     let expanded = $derived(isExpanded(node.path));
@@ -48,6 +61,19 @@
         const orderedNames = getEffectiveOrder(node.path, names);
         const byName = new Map(children.map(c => [c.name, c]));
         return orderedNames.map(name => byName.get(name)!);
+    }
+
+    // Function to handle opening notes
+    async function handleOpenNote() {
+        console.log("Opening note...")
+        try {
+            await openNote(node.path, node.kind);
+        } catch (e) {
+            await message(
+                e instanceof Error ? e.message : 'Opening note failed',
+                { title: 'Error in opening note', kind: 'warning' }
+            );
+        }
     }
         
     // Function to handle renaming of nodes
@@ -156,7 +182,6 @@
                 <TreeView 
                     node={child} 
                     depth={depth + 1} 
-                    {handleLeafClick}
                 />
             {/each}
             <DropGap parentPath="" targetIndex={orderedChildren.length} allNames={names} />
@@ -175,7 +200,7 @@
             <div class="node-row" draggable="true" ondragstart={handleDragStart}>
                 <span class="drop-down-placeholder"></span>
                 <div class="node-content">
-                    <button class="leaf" onclick={handleLeafClick}>
+                    <button class="leaf" onclick={handleOpenNote}>
                         {node.kind === 'pdfNote' ? '📄' : '📝'} 
                         <span class="input-wrapper">
                             <input 
@@ -197,6 +222,15 @@
                             <span class="input-mirror">{currentName}</span>
                         </span>
                     </button>
+                    {#if !isPinned(node.path)}
+                        <button class="pin-btn" title="Add note to Pinned" onclick={() => addToPinned(node.path)}>
+                            <span>📌</span>
+                        </button>
+                    {:else}
+                        <button class="pin-btn" title="Remove note from Pinned" onclick={() => removeFromPinned(node.path)}>
+                            <span class="unpin-icon">📌</span>
+                        </button>
+                    {/if}
                     <button class="del-btn" title="Delete note" onclick={() => handleDelete(node.name, node.path, node.kind)}>×</button>
                 </div>
             </div>
@@ -270,7 +304,6 @@
                         <TreeView 
                             node={child} 
                             depth={depth + 1} 
-                            {handleLeafClick}
                         />
                     {/each}
                     <DropGap parentPath={node.path} targetIndex={orderedChildren.length} allNames={names} />
@@ -294,7 +327,20 @@
         padding-left: calc((var(--depth) - 1) * 20px + 8px);
     }
 
-    /* Fodler row */
+    .pin-btn {
+        font-size: 14px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding-right: 5px;
+    }
+
+    .unpin-icon {
+        filter: brightness(0.7);
+        filter: grayscale(100%);
+    }
+
+    /* Folder row */
     .folder-row-container {
         background-color: white;
     }
