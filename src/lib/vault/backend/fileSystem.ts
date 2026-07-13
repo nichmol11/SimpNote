@@ -1,9 +1,9 @@
-// src/lib/vault/fileSystem.ts
+// src/lib/vault/backend/fileSystem.ts
 
 import { open, message } from '@tauri-apps/plugin-dialog';
 import { readDir, mkdir, exists, rename, remove, writeTextFile, readTextFile, copyFile, readFile} from '@tauri-apps/plugin-fs'
 import { join } from '@tauri-apps/api/path'
-import { db } from '$lib/db';
+import { db } from '$lib/vault/backend/db';
 import type { PdfNotes } from './types';
 
 // Function to allow the user to select the folder for their note vault

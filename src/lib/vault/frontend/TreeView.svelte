@@ -1,9 +1,9 @@
-<!-- src/lib/vault/TreeView.svelte -->
+<!-- src/lib/vault/frontend/TreeView.svelte -->
 <script lang="ts">
-    import type { TreeNode } from '$lib/vault/types';
+    import type { TreeNode } from '$lib/vault/backend/types';
     import TreeView from './TreeView.svelte';
     import DropGap from './DropGap.svelte';
-    import { isDescendantOrSelf } from './pathUtils';
+    import { isDescendantOrSelf } from '$lib/vault/backend/pathUtils';
     import { isExpanded,
         toggleExpanded,
         selectFolder,
@@ -18,7 +18,7 @@
         moveNode,
         expandFolder,
         openNote
-    } from '$lib/vault/store.svelte'
+    } from '$lib/vault/backend/store.svelte'
 	import { message, confirm } from '@tauri-apps/plugin-dialog';
 
     // --- Props ---

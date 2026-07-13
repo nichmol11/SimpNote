@@ -1,4 +1,4 @@
-// src/lib/vault/store.svelte.ts
+// src/lib/vault/backend/store.svelte.ts
 
 import { invoke } from '@tauri-apps/api/core';
 import type { NodeKind, TreeNode, NoteState, Workspace, PdfNotes } from './types';
@@ -20,9 +20,9 @@ import {
     writePDFNote,
     pickPdfFile,
 
-} from '$lib/vault/fileSystem';
+} from '$lib/vault/backend/fileSystem';
 import { getBaseName } from './pathUtils';
-import { validateNodeName } from '$lib/vault/validation';
+import { validateNodeName } from '$lib/vault/backend/validation';
 
 // Define state variables
 let tree = $state<TreeNode | null>(null); // In-memory representation of the vault folder/file structure
@@ -586,7 +586,7 @@ export async function closeNote() {
     if (!currentNotePath) return; // check a note is open
 
     // Save data before closing
-    if (currentNoteKind == 'pdfNote') {
+    if (currentNoteKind == 'pdfNote' && currentNoteContent) {
         await savePDFNote(currentNotePath, currentNoteContent);
     } else if (currentNoteKind == 'plainNote') {
         await savePlainNote(currentNotePath, currentNoteContent)

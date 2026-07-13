@@ -8,8 +8,8 @@
         updateCurrentNoteContent,
         getCurrentPdfBinary, 
         savePDFNote 
-    } from '$lib/vault/store.svelte';
-    import type { PdfNotes } from '$lib/vault/types';
+    } from '$lib/vault/backend/store.svelte';
+    import type { PdfNotes } from '$lib/vault/backend/types';
 
     // 1. Import the worker URL using Vite's asset bundling query
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';

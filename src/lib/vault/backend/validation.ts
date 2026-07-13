@@ -1,4 +1,4 @@
-// src/lib/vault/validation.ts
+// src/lib/vault/backend/validation.ts
 
 // Function to validate node (file/folder) names e.g. check for illegal characters
 export function validateNodeName(name: string): string | null {

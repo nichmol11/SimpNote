@@ -1,4 +1,4 @@
-// src/lib/db.ts
+// src/lib/vault/backend/db.ts
 // Minimal Dexie database for persisting the last selected directory path
 import Dexie, { type Table } from 'dexie';
 

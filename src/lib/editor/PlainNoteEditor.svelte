@@ -6,7 +6,7 @@
         savePlainNote, 
 		updateCurrentNoteContent
 
-    } from '$lib/vault/store.svelte';
+    } from '$lib/vault/backend/store.svelte';
 
     interface Props {
         notePath: string;

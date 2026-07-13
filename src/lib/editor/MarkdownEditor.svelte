@@ -1,5 +1,4 @@
 <!-- src/lib/editor/MarkdownEditor.svelte -->
-
 <script lang="ts">
     import { marked } from 'marked';
 

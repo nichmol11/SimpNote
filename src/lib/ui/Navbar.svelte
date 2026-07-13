@@ -1,10 +1,10 @@
-<!-- src/lib/Navbar.svelte -->
+<!-- src/lib/ui/Navbar.svelte -->
 <script lang="ts">
     import { getCurrentWindow } from '@tauri-apps/api/window';
     import { onMount } from 'svelte';
     import sidebarIcon from '$lib/img/sidebar-icon.svg';
-    import { getBaseName } from './vault/pathUtils';
-    import { getCurrentNotePath, toggleSidebar, closeNote } from './vault/store.svelte';
+    import { getBaseName } from '$lib/vault/backend/pathUtils';
+    import { getCurrentNotePath, toggleSidebar, closeNote } from '$lib/vault/backend/store.svelte';
 
     let currentNotePath = $derived(getCurrentNotePath());
     let isWindowMaximized = $state(false);

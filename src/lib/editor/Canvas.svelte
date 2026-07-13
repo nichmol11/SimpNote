@@ -6,7 +6,7 @@
         getCurrentNotePath, 
         getCurrentNoteKind,
         addPDFNote
-    } from '$lib/vault/store.svelte';
+    } from '$lib/vault/backend/store.svelte';
 
     let globalZoom = $state(1);
     let showMarkdownAll = $state(false);

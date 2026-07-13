@@ -1,4 +1,4 @@
-// src/lib/vault/types.ts
+// src/lib/vault/backend/types.ts
 
 export type NodeKind = 'folder' | 'plainNote' | 'pdfNote';
 

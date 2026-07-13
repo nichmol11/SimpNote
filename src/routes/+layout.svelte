@@ -1,10 +1,10 @@
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
     import './layout.css';
-    import Sidebar from '$lib/Sidebar.svelte';
-    import Navbar from '$lib/Navbar.svelte';
+    import Sidebar from '$lib/ui/Sidebar.svelte';
+    import Navbar from '$lib/ui/Navbar.svelte';
     import { onMount, setContext } from 'svelte';
-    import { restoreVault, getIsRestoring, getIsSidearOpen } from '$lib/vault/store.svelte';
+    import { restoreVault, getIsRestoring, getIsSidearOpen } from '$lib/vault/backend/store.svelte';
 
     const { children } = $props();
 

@@ -1,8 +1,8 @@
 <!-- src/lib/vault/DropGap.svelte -->
 
 <script lang="ts">
-    import { moveNode, reorderNode } from "./store.svelte";
-    import { getBaseName, isDescendantOrSelf } from "./pathUtils";
+    import { moveNode, reorderNode } from "$lib/vault/backend/store.svelte";
+    import { getBaseName, isDescendantOrSelf } from "$lib/vault/backend/pathUtils";
     import { message } from '@tauri-apps/plugin-dialog';
 
     interface Props {

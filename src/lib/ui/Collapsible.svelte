@@ -1,3 +1,4 @@
+<!-- src/lib/ui/Collapsible.svelte -->
 <script lang="ts">
 
   interface Props {

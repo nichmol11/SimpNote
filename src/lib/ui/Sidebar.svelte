@@ -1,8 +1,10 @@
+<!-- src/lib/ui/Sidebar.svelte -->
 <script lang="ts">
-    import { onMount, getContext } from 'svelte';
-    import TreeView from './vault/TreeView.svelte';
-    import PinnedList from './vault/PinnedList.svelte';
-    import { toggleSidebar, getTree, getVaultPath, openVault, getIsRestoring, addNewFolder, addPlainNote, addPDFNote, getIsSidearOpen} from '$lib/vault/store.svelte';
+    import { getContext } from 'svelte';
+    import TreeView from '$lib/vault/frontend/TreeView.svelte';
+    import PinnedList from '$lib/vault/frontend/PinnedList.svelte';
+    import LastOpened from '$lib/vault/frontend/LastOpened.svelte';
+    import { getTree, getVaultPath, openVault, getIsRestoring, addNewFolder, addPlainNote, addPDFNote, getIsSidearOpen} from '$lib/vault/backend/store.svelte';
 	import Collapsible from './Collapsible.svelte';
 
     let tree = $derived(getTree());
@@ -50,7 +52,7 @@
         </div>
         <Collapsible icon="🔁" title="Last Opened">
             <div id="last-opened">
-                <p>Place holder</p>        
+                <LastOpened></LastOpened>      
             </div>
         </Collapsible>
         <Collapsible icon="📌" title="Pinned Notes">
@@ -99,7 +101,7 @@
         background-color: #f9f9f9;
         border-right: 1px solid #ddd;
         overflow-y: auto;
-        overflow-x: hidden; /* hides content cleanly while column width animates to 0 */
+        overflow-x: hidden;
         box-sizing: border-box;
         transition: 0.2s ease;
     }
@@ -140,7 +142,6 @@
         font-weight: 500;
     }
 
-    /* Folder list (tree view container) styling*/
     #folder-list {
         padding: 5px;
         padding-right: 0px;

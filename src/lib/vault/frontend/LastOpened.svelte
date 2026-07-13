@@ -1,12 +1,12 @@
-<!-- src/lib/vault/PinnedList.svelte -->
+<!-- src/lib/vault/frontend/LastOpened.svelte -->
 
 <script lang="ts">
-    import { getPinned, isPinned, removeFromPinned, openNote, addPlainNote } from "./store.svelte";
-    import { getBaseName } from "./pathUtils";
+    import { openNote, getLastOpened } from "$lib/vault/backend/store.svelte";
+    import { getBaseName } from "$lib/vault/backend/pathUtils";
     import { message } from '@tauri-apps/plugin-dialog';
-	import type { NodeKind } from "./types";
+	import type { NodeKind } from "$lib/vault/backend/types";
 
-    let pinnedList = $derived(getPinned());
+    let lastOpened = $derived(getLastOpened());
 
     async function handleOpenNote(path: string) {
         let noteKind: NodeKind;
@@ -24,39 +24,27 @@
             );
         }
     }
-    // TO BUILD
-    async function reorderPinned() {
-
-    }
 </script>
 
-<div class="pinned-list">
-    {#if pinnedList.length >= 1}
-        {#each pinnedList as pinned}
-            <div class="pinned" onclick={() => handleOpenNote(pinned)}>
+<div class="last-opened">
+    {#if lastOpened}
+            <div class="pinned" onclick={() => handleOpenNote(lastOpened)}>
                 <div class="note-title">
-                    {#if pinned.endsWith(".md")}
+                    {#if lastOpened.endsWith(".md")}
                         <span>📝</span>
                     {:else}
                         <span>📄</span>
                     {/if}
-                    <span>{(getBaseName(pinned))}</span>
+                    <span>{(getBaseName(lastOpened))}</span>
                 </div>
-
-                <button class="pin-btn" title="Remove note from Pinned" onclick={() => removeFromPinned(pinned)}>
-                    <span class="unpin-icon">📌</span>
-                </button>
             </div>
-        {/each}
     {:else}
-        <h2>Nothing is pinned yet!</h2>
+        <h2>No recently opened notes</h2>
     {/if}
 </div>
 
 <style>
-    .pinned-list {
-    }
-    .pinned {
+    .last-opened {
         width: 100%;
         padding-left: 15px;
         padding-right: 16px;
@@ -66,10 +54,5 @@
         flex-direction: row;            
         justify-content: space-between;  
         align-items: center;  
-    }
-
-    .unpin-icon {
-        filter: brightness(0.7);
-        filter: grayscale(100%);
     }
 </style>
