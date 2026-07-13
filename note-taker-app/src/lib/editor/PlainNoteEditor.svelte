@@ -3,7 +3,9 @@
     import MarkdownEditor from '../editor/MarkdownEditor.svelte'; 
     import { 
         getCurrentNoteContent, 
-        savePlainNote 
+        savePlainNote, 
+		updateCurrentNoteContent
+
     } from '$lib/vault/store.svelte';
 
     interface Props {
@@ -23,8 +25,8 @@
         clearTimeout(autoSaveTimer);
         autoSaveTimer = setTimeout(async () => {
             try {
-                // 2. Persist the state update straight through to your store mutation logic
                 console.log(`[PlainNoteEditor] Triggering autosave for file: ${notePath}`);
+                updateCurrentNoteContent(content);
                 await savePlainNote(notePath, content);
             } catch (err) {
                 console.error('[PlainNoteEditor] Autosave error:', err);

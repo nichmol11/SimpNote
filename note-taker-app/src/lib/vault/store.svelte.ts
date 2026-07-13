@@ -66,6 +66,11 @@ export function toggleSidebar() {
     isSidebarOpen = !isSidebarOpen;
 }
 
+// Function to update the current note content
+export function updateCurrentNoteContent(newContent: string | PdfNotes) {
+    currentNoteContent = newContent;
+}
+
 // Function to return a given node in the tree based on a bath
 function findNodeByPath(currNode: TreeNode | null, path: string): TreeNode | null {
     if (!currNode) return null; // If the path doesn't exist, return null
@@ -573,4 +578,21 @@ export async function savePDFNote(path: string, updatedNotes: PdfNotes) {
     await writePDFNote(path, vaultPath, updatedNotes);
     
     await saveWorkspaceData();
+}
+
+// Function to close a note
+export async function closeNote() {
+    if (!vaultPath) throw new Error("No vault is open"); // check vault is open
+    if (!currentNotePath) return; // check a note is open
+
+    // Save data before closing
+    if (currentNoteKind == 'pdfNote') {
+        await savePDFNote(currentNotePath, currentNoteContent);
+    } else if (currentNoteKind == 'plainNote') {
+        await savePlainNote(currentNotePath, currentNoteContent)
+    }
+    await saveWorkspaceData();
+
+    // close - reset state variables
+    currentNoteContent = currentNoteKind = currentNotePath = currentPdfBinary = null;
 }

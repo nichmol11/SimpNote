@@ -1,92 +1,106 @@
 <!-- src/routes/+layout.svelte -->
-
 <script lang="ts">
-	import './layout.css';
-	import Sidebar from '$lib/Sidebar.svelte';
-	import Navbar from '$lib/Navbar.svelte';
-	import { onMount, setContext } from 'svelte';
-	import { restoreVault, getIsRestoring } from '$lib/vault/store.svelte';
+    import './layout.css';
+    import Sidebar from '$lib/Sidebar.svelte';
+    import Navbar from '$lib/Navbar.svelte';
+    import { onMount, setContext } from 'svelte';
+    import { restoreVault, getIsRestoring, getIsSidearOpen } from '$lib/vault/store.svelte';
 
-	const { children } = $props();
+    const { children } = $props();
 
-	// Init function on app start
-	onMount(() => {
-		// Restore vault if it has been saved
-		restoreVault();
-	})
+    onMount(() => {
+        restoreVault();
+    })
 
-	let isSidebarOpen = $state(true);
-	let isSaving = $state(false);
-	let hasAutosaveEnabled = $state(false);
-	let currentFileName = $state("No note selected");
-	let onUpload = $state<() => void>(() => {});
-	let onCreateTextNote = $state<() => void>(() => {});
-	let onRemove = $state<() => void>(() => {});
-	let refreshSidebar = $state<() => void>(() => {});
-	let onLoadNote = $state<(jsonName: string) => Promise<void>>(async () => {});
-	let onRenameNote = $state<(oldName: string, newName: string) => void>(() => {});
+    let isSidebarOpen = $derived(getIsSidearOpen());
+    let isSaving = $state(false);
+    let hasAutosaveEnabled = $state(false);
+    let currentFileName = $state("No note selected");
+    let onUpload = $state<() => void>(() => {});
+    let onCreateTextNote = $state<() => void>(() => {});
+    let onRemove = $state<() => void>(() => {});
+    let refreshSidebar = $state<() => void>(() => {});
+    let onLoadNote = $state<(jsonName: string) => Promise<void>>(async () => {});
+    let onRenameNote = $state<(oldName: string, newName: string) => void>(() => {});
+    let onSave = $state<() => void>(() => {});
 
-	function toggleSidebar() {
-		isSidebarOpen = !isSidebarOpen;
-	}
-
-	let onSave = $state<() => void>(() => {});
-
-	setContext('navbar', {
-		setHandlers: (
-			uploadHandler: () => void,
-			createTextNoteHandler: () => void,
-			removeHandler: () => void,
-			saveHandler: () => void
-		) => {
-			onUpload = uploadHandler;
-			onCreateTextNote = createTextNoteHandler;
-			onRemove = removeHandler;
-			onSave = saveHandler;
-		},
-		setRefreshSidebar: (refreshFn: () => void) => {
-			refreshSidebar = refreshFn;
-		},
-		getRefreshSidebar: () => refreshSidebar,
-		setIsSaving: (saving: boolean) => {
-			isSaving = saving;
-		},
-		setHasAutosaveEnabled: (enabled: boolean) => {
-			hasAutosaveEnabled = enabled;
-		},
-		setLoadNote: (loadFn: (jsonName: string) => Promise<void>) => {
-			onLoadNote = loadFn;
-		},
-		getLoadNote: () => onLoadNote,
-		setRenameHandler: (renameHandler: (oldName: string, newName: string) => void) => {
-			onRenameNote = renameHandler;
-		},
-		getRenameHandler: () => onRenameNote,
-		setCurrentFileName: (name: string) => {
-			currentFileName = name;
-		}
-	});
-
+    setContext('navbar', {
+        setHandlers: (
+            uploadHandler: () => void,
+            createTextNoteHandler: () => void,
+            removeHandler: () => void,
+            saveHandler: () => void
+        ) => {
+            onUpload = uploadHandler;
+            onCreateTextNote = createTextNoteHandler;
+            onRemove = removeHandler;
+            onSave = saveHandler;
+        },
+        setRefreshSidebar: (refreshFn: () => void) => {
+            refreshSidebar = refreshFn;
+        },
+        getRefreshSidebar: () => refreshSidebar,
+        setIsSaving: (saving: boolean) => {
+            isSaving = saving;
+        },
+        setHasAutosaveEnabled: (enabled: boolean) => {
+            hasAutosaveEnabled = enabled;
+        },
+        setLoadNote: (loadFn: (jsonName: string) => Promise<void>) => {
+            onLoadNote = loadFn;
+        },
+        getLoadNote: () => onLoadNote,
+        setRenameHandler: (renameHandler: (oldName: string, newName: string) => void) => {
+            onRenameNote = renameHandler;
+        },
+        getRenameHandler: () => onRenameNote,
+        setCurrentFileName: (name: string) => {
+            currentFileName = name;
+        }
+    });
 </script>
-<Navbar {toggleSidebar} {onUpload} {onCreateTextNote} {onRemove} {onSave} {isSaving} {hasAutosaveEnabled} {currentFileName} />
-<Sidebar {isSidebarOpen} {toggleSidebar} />
-<main class="app-main" class:sidebar-open={isSidebarOpen}>
-	{@render children()}
-</main>
+
+<div class="app-shell">
+    <Navbar/>
+    <div class="app-body" class:sidebar-closed={!isSidebarOpen}>
+        <Sidebar/>
+        <main class="app-main">
+            {@render children()}
+        </main>
+    </div>
+</div>
 
 <style>
-	:global(:root) {
-		--sidebar-width: 300px;
-	}
+    :global(html, body) {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
 
-	.app-main {
-		margin-left: 0;
-		width: 100%;
-		transition: margin-left 0.3s ease, width 0.3s ease;
-	}
+    .app-shell {
+        height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
 
-	.app-main.sidebar-open {
-		margin-left: var(--sidebar-width);
-		width: calc(100% - var(--sidebar-width));
-	}
+    .app-body {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .app-body.sidebar-closed {
+        grid-template-columns: 0px 1fr;
+    }
+
+    .app-main {
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        position: relative;
+    }
 </style>

@@ -92,18 +92,16 @@
 
 <style>
     #sidebar {
-        position: fixed;
-        top: 40px; 
-        left: 0;
-        height: calc(100% - 40px); 
-        width: 300px;
+        width: 100%;
+        min-wdith: 0;
+        height: 100%;
         padding: 16px;
         background-color: #f9f9f9;
         border-right: 1px solid #ddd;
-        transition: transform 0.3s ease;
-        z-index: 99;
-        overflow-y: scroll;
-        margin-top: 0;
+        overflow-y: auto;
+        overflow-x: hidden; /* hides content cleanly while column width animates to 0 */
+        box-sizing: border-box;
+        transition: 0.2s ease;
     }
 
     #sidebar.closed { transform: translateX(-100%); }

@@ -2,9 +2,10 @@
 
 <script lang="ts">
     import * as pdfjs from 'pdfjs-dist';
-    import PageRow from '$lib/PageRow.svelte';
+    import PageRow from '$lib/editor/PageRow.svelte';
     import { 
-        getCurrentNoteContent, 
+        getCurrentNoteContent,
+        updateCurrentNoteContent,
         getCurrentPdfBinary, 
         savePDFNote 
     } from '$lib/vault/store.svelte';
@@ -83,6 +84,7 @@ async function parsePdfDocument(arrayBuffer: ArrayBuffer, meta: PdfNotes) {
             });
 
             try {
+                updateCurrentNoteContent(updatedMeta);
                 await savePDFNote(notePath, updatedMeta);
                 console.log(`Saved nested note updates to bundle path: ${notePath}`);
             } catch (err) {

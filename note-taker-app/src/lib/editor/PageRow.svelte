@@ -1,3 +1,4 @@
+<!-- src/lib/editor/PageRow.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { marked } from 'marked';
@@ -17,32 +18,24 @@
   let displayWidth = $state(550);
   let displayHeight = $state(720);
 
-  // Configure marked for GFM (tables, etc.)
-  marked.setOptions({
-    gfm: true,
-    breaks: true
-  });
+  marked.setOptions({ gfm: true, breaks: true });
 
-  // Render markdown to HTML
   function renderMarkdown(text: string): string {
     if (!text) return '';
     return marked.parse(text) as string;
   }
 
   onMount(() => {
-    // Render PDF asynchronously
     renderPdf();
   });
 
   async function renderPdf() {
-    // 1. Determine size with HiDPI support
     const pixelRatio = window.devicePixelRatio || 1;
+    const maxDisplayWidth = 550;
 
-    // Calculate scale to fit within max display width while rendering at high res
-    const maxDisplayWidth = 550; // Max CSS width for display
     const naturalViewport = pageProxy.getViewport({ scale: 1 });
     const displayScale = maxDisplayWidth / naturalViewport.width;
-    const renderScale = displayScale * pixelRatio; // Render at higher res for HiDPI
+    const renderScale = displayScale * pixelRatio;
 
     const viewport = pageProxy.getViewport({ scale: renderScale });
     const context = canvas.getContext('2d');
@@ -50,38 +43,28 @@
     displayHeight = viewport.height / pixelRatio;
 
     if (context) {
-      // Set canvas internal resolution (high res for crisp rendering)
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-
-      // Set CSS display size (scaled down for proper visual size)
       canvas.style.width = `${viewport.width / pixelRatio}px`;
       canvas.style.height = `${viewport.height / pixelRatio}px`;
 
-      // 2. Render PDF Page to Canvas
-      const renderContext = {
+      await pageProxy.render({
         canvas,
         canvasContext: context,
-        viewport: viewport
-      };
-      await pageProxy.render(renderContext).promise;
+        viewport
+      }).promise;
     }
   }
 
   function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    onNoteUpdate(target.value); // Bubbles the change to the parent
+    onNoteUpdate(target.value);
   }
-
 </script>
 
 <section class="page-row">
   <div class="pdf-viewer">
-    <div
-      class="pdf-container"
-      role="img"
-      aria-label="PDF page {id}"
-    >
+    <div class="pdf-container" role="img" aria-label="PDF page {id}">
       <canvas bind:this={canvas}></canvas>
     </div>
   </div>
@@ -92,9 +75,9 @@
         {@html renderMarkdown(note)}
       </div>
     {:else}
-      <textarea 
-        value={note} 
-        oninput={handleInput} 
+      <textarea
+        value={note}
+        oninput={handleInput}
         placeholder="Notes for page {id}..."
       ></textarea>
     {/if}
@@ -102,17 +85,17 @@
 </section>
 
 <style>
-
   .page-row {
-    display: flex; 
-    gap: 30px; 
-    margin-bottom: 50px; 
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 30px;
+    margin-bottom: 50px;
     justify-content: center;
     align-items: flex-start;
-    /* background-color: #fafafa; */
   }
+
   .pdf-viewer {
-    flex: 1;
+    flex: 0 0 auto;
     max-width: 600px;
     display: flex;
     flex-direction: column;
@@ -134,11 +117,13 @@
   canvas {
     display: block;
     border-radius: 0;
-    /* Don't use max-width: 100% as it breaks aspect ratio */
   }
+
   .editor {
     display: flex;
     flex-direction: column;
+    flex: 0 0 auto;
+    box-sizing: border-box;
   }
 
   textarea {
@@ -167,7 +152,6 @@
     flex: 1;
   }
 
-  /* Basic markdown styling */
   .markdown-preview :global(h1) { font-size: 1.8em; margin: 0.5em 0; font-weight: bold; }
   .markdown-preview :global(h2) { font-size: 1.5em; margin: 0.5em 0; font-weight: bold; }
   .markdown-preview :global(h3) { font-size: 1.2em; margin: 0.5em 0; font-weight: bold; }
@@ -175,8 +159,6 @@
   .markdown-preview :global(ul) { margin: 0.5em 0; padding-left: 1.5em; list-style-type: disc; }
   .markdown-preview :global(ol) { margin: 0.5em 0; padding-left: 1.5em; list-style-type: decimal; }
   .markdown-preview :global(li) { margin: 0.25em 0; display: list-item; }
-
-  /* Table styles for GFM tables */
   .markdown-preview :global(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
   .markdown-preview :global(th), .markdown-preview :global(td) { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
   .markdown-preview :global(th) { background: #f0f0f0; font-weight: bold; }

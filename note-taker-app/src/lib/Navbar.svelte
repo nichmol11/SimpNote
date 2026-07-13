@@ -1,30 +1,14 @@
+<!-- src/lib/Navbar.svelte -->
 <script lang="ts">
     import { getCurrentWindow } from '@tauri-apps/api/window';
     import { onMount } from 'svelte';
     import sidebarIcon from '$lib/img/sidebar-icon.svg';
-    import appIcon from '$lib/img/icon_64x64.png';
-    import saveIcon from '$lib/img/save-icon.svg';
-    import saveEnabledIcon from '$lib/img/save-enabled-icon.svg';
-	import { getBaseName } from './vault/pathUtils';
-	import { getCurrentNotePath, toggleSidebar } from './vault/store.svelte';
- 
+    import { getBaseName } from './vault/pathUtils';
+    import { getCurrentNotePath, toggleSidebar, closeNote } from './vault/store.svelte';
 
     let currentNotePath = $derived(getCurrentNotePath());
-
     let isWindowMaximized = $state(false);
     let isWindowFullscreen = $state(false);
-
-    function handleUploadClick() {
-        onUpload();
-    }
-
-    function removePDF() {
-        onRemove();
-    }
-
-    function createTextNote() {
-        onCreateTextNote();
-    }
 
     async function updateWindowState() {
         try {
@@ -91,24 +75,28 @@
     });
 </script>
 
-
-<nav class="navbar">
+<nav class="navbar" data-tauri-drag-region>
     <div class="nav-content" data-tauri-drag-region>
-        <button id="sidebar-toggle" data-tauri-drag-region="false" onclick={toggleSidebar} title="Toggle Sidebar">
+        <button id="sidebar-toggle" onclick={toggleSidebar} title="Toggle Sidebar" data-tauri-drag-region="false">
             <img src={sidebarIcon} alt="sidebar button"/>
         </button>
         
-        <h1 class="note-title-name">
+        <div class="note-title" data-tauri-drag-region="true">
+            <h1 class="note-title-name">
+                {#if currentNotePath}
+                    {getBaseName(currentNotePath)}
+                {:else}
+                    No note is open
+                {/if}
+            </h1>
             {#if currentNotePath}
-                {getBaseName(currentNotePath)}
-            {:else}
-                No note is open - create or open a note!
+                <button class="close-note-btn" title="Close note" data-tauri-drag-region="false" onclick={() => closeNote()}>×</button>
             {/if}
-        </h1>
-        <div class="drag-region"></div>
+        </div>
+
 
         <div class="window-controls" aria-label="Window controls" data-tauri-drag-region="false">
-            <button
+            <button 
                 type="button"
                 class="window-btn utility"
                 onclick={handleMinimizeOrRestore}
@@ -125,124 +113,62 @@
                 {isWindowMaximized ? "❐" : "□"}
             </button>
             <button type="button" class="window-btn close" onclick={closeWindow} title="Close">×</button>
-        </div>
+        </div> 
     </div>
 </nav>
 
-
 <style>
     .navbar {
-        top: 0;
         width: 100%;
         height: 40px;
-        position: fixed;
         border-bottom: 1px solid #ddd;
         background-color: white;
-        z-index: 100;
         display: flex;
         align-items: center;
+        flex-shrink: 0;
+        /* Remove -webkit-app-region: drag; */
     }
-    
+
     .nav-content {
         width: 100%;
-        padding: 0 20px;
-        display: flex;
-        gap: 20px;
-        align-items: center;
-    }
-    
-    .logo {
-        font-weight: bold; /* Moved from bottom rules for consistency */
-    }
-
-    .logo img {
-        height: 50px;
-    }
-
-
-    .file-section {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .drag-region {
-        flex: 1;
         height: 100%;
-        min-width: 40px;
-    }
-    
-    /* Removed #fileInput styles as it is deleted */
-    
-    .custom-upload-btn {
-        display: inline-block;
-        height: 35px;
-        padding: 8px 16px;
-        background-color: #007bff;
-        color: white;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background-color 0.2s;
-        border: none;
-    }
-    
-    .custom-upload-btn:hover:not(.disabled) {
-        background-color: #0056b3;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        padding: 0 10px;
     }
 
-    .text-note-btn {
-        background-color: #198754;
+    .note-title {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        gap: 10px;
+        max-width: 500px;
+        align-items: center;
+        
     }
 
-    .text-note-btn:hover:not(.disabled) {
-        background-color: #157347;
-    }
-    
-    .custom-upload-btn.disabled {
-        background-color: #cccccc;
-        cursor: not-allowed;
-    }
-    
-    .file-name {
+    .note-title-name {
+        grid-column: 2;
         font-size: 14px;
         color: #333;
-        min-width: 250px;
         text-align: center;
+        margin: 0;
+        pointer-events: none;
     }
-    
-    .remove-btn {
-        padding: 8px 16px;
-        background-color: #dc3545;
-        height: 35px;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: background-color 0.2s;
-    }
-    
-    .remove-btn:hover {
-        background-color: #c82333;
-    }
-    
-    .save-btn {
-        background: none;
-        border: none;
-        padding: 0;
+
+    .close-note-btn {
+        font-size: 20px;
         cursor: pointer;
     }
 
-    .save-btn img {
-        height: 40px;
-        cursor: pointer;
+    .close-note-btn:hover {
+        color:#ef4444;
     }
 
-    .save-btn.autosave-enabled img {
-        transform: scale(0.95);
+    #sidebar-toggle, .window-controls {
+        -webkit-app-region: no-drag;
     }
-
 
     #sidebar-toggle {
         background: none;
@@ -254,19 +180,6 @@
     #sidebar-toggle img {
         height: 40px;
         cursor: pointer;
-    }
-
-    .save-indicator {
-        font-size: 12px;
-        color: #666;
-        animation: pulse 1s ease-in-out infinite;
-    }
-
-    .navigation-options {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        height:100%;
     }
 
     .window-controls {
@@ -304,10 +217,5 @@
     .window-btn.close:hover {
         background: #dc3545;
         color: #fff;
-    }
-
-    @keyframes pulse {
-        0%, 100% { opacity: 0.6; }
-        50% { opacity: 1; }
     }
 </style>
