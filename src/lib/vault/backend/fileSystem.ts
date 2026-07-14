@@ -185,7 +185,8 @@ export async function createPDFNote(relativeParentPath: string, vaultPath: strin
             const newPDFPath = fullPath + "/source.pdf";
             await copyFile(sourcePDFPath, newPDFPath); // Copy the source PDF
             const noteFullPath = fullPath + "/notes.json";
-            await writeTextFile(noteFullPath, '{}')
+            const blankNotes: PdfNotes = { noteName: name, pages: {}}
+            await writeTextFile(noteFullPath, JSON.stringify(blankNotes))
             // return the relative path so the store knows what was created
             return relativeParentPath ? `${relativeParentPath}/${name}` : `${name}`;
         } // let errors prropogate to caller

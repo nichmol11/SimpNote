@@ -126,15 +126,14 @@
         display: flex;
         align-items: center;
         flex-shrink: 0;
-        /* Remove -webkit-app-region: drag; */
     }
 
     .nav-content {
         width: 100%;
         height: 100%;
-        display: grid;
-        grid-template-columns: auto 1fr auto;
+        display: flex;
         align-items: center;
+        justify-content: space-between;
         padding: 0 10px;
     }
 
