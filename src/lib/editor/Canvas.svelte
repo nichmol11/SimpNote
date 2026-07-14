@@ -1,11 +1,13 @@
 <!-- src/lib/editor/Canvas.svelte -->
 <script lang="ts">
+    import { onMount } from "svelte";
+    import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
     import PlainNoteEditor from '$lib/editor/PlainNoteEditor.svelte';
     import PdfNoteEditor from '$lib/editor/PdfNoteEditor.svelte';
     import { 
         getCurrentNotePath, 
         getCurrentNoteKind,
-        addPDFNote
+		addDragedPDFNote
     } from '$lib/vault/backend/store.svelte';
 
     let globalZoom = $state(1);
@@ -26,46 +28,57 @@
         globalZoom = Math.max(MIN_GLOBAL_ZOOM, globalZoom - 0.1);
     }
 
-    // Drag and drop mechanics for shorthand PDF ingestion
-    function handleDragOver(e: DragEvent) {
-        e.preventDefault();
-        if (!currentNotePath) {
-            isDraggingOver = true;
+    async function handleFileDrop(paths: string[]) {
+        const droppedPdfs = paths.filter(path => path.toLowerCase().endsWith('.pdf'));
+        if (droppedPdfs.length === 0) return;
+
+        try {
+            console.log(`Ingesting PDF: ${droppedPdfs[0]}`);
+            // Await your store function natively here
+            await addDragedPDFNote(droppedPdfs[0]); 
+        } catch (err) {
+            console.error("Failed creating note from dropped PDF:", err);
         }
     }
 
-    function handleDragLeave() {
-        isDraggingOver = false;
-    }
+    // Capture absolute file paths natively through Tauri V2 Window Listeners
+    onMount(() => {
+        let unlisten: () => void;
 
-    async function handleDrop(e: DragEvent) {
-        e.preventDefault();
-        isDraggingOver = false;
-
-        if (currentNotePath || !e.dataTransfer?.files) return;
-
-        const files = Array.from(e.dataTransfer.files);
-        const pdfFile = files.find(file => file.name.endsWith('.pdf'));
-
-        if (pdfFile) {
-            try {
-                // If your backend pickPdfFile function can accept raw paths, 
-                // you can route the target file.path property straight here:
-                console.log(`Ingesting dropped PDF asset: ${pdfFile.name}`);
-                await addPDFNote(); 
-            } catch (err) {
-                console.error("Failed creating note from dropped PDF binary:", err);
+        getCurrentWebviewWindow().onDragDropEvent((event) => {
+            // If a note is open, you might still want to ignore drops, 
+            // but let's handle the styling state correctly first.
+            switch (event.payload.type) {
+                case 'enter':
+                case 'over':
+                    // Do not read event.payload.paths here as it's undefined or empty
+                    if (!currentNotePath) {
+                        isDraggingOver = true;
+                    }
+                    break;
+                case 'leave':
+                case 'cancelled':
+                    isDraggingOver = false;
+                    break;
+                case 'drop':
+                    isDraggingOver = false;
+                    if (currentNotePath) return; // Guard drop action if a note is loaded
+                    
+                    // Handle the actual dropped files safely here
+                    handleFileDrop(event.payload.paths);
+                    break;
             }
-        }
-    }
+        }).then(unlistenFn => unlisten = unlistenFn);
+
+        return () => {
+            if (unlisten) unlisten();
+        };
+    });
 </script>
 
 <main 
     id="content" 
     class:drag-active={isDraggingOver}
-    ondragover={handleDragOver}
-    ondragleave={handleDragLeave}
-    ondrop={handleDrop}
 >
     {#if currentNotePath}
         <div class="global-zoom-controls">
@@ -93,7 +106,7 @@
         <div class="placeholder-dropzone">
             <div class="dropzone-art">📄</div>
             <p>No note loaded.</p>
-            <p class="sub-text">Select a note from the sidebar, or <strong>drag and drop a PDF file here</strong> to instantly generate a new notebook layout.</p>
+            <p class="sub-text">Open or create a note in the sidebar, or <strong>drag and drop a PDF file here</strong> to create a new PDF note.</p>
         </div>
     {/if}
 </main>
@@ -108,7 +121,7 @@
         flex-direction: column;
         align-items: center;
         box-sizing: border-box;
-        transition: background-color 0.2s ease;
+        transition: background-color 0.2s ease, outline 0.2s ease;
     }
 
     #content.drag-active {

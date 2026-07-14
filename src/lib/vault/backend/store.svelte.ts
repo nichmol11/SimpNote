@@ -355,6 +355,11 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);
 
+    // Update current note path if applicable
+    if (currentNotePath == nodePath) {
+        currentNotePath = newPath;
+    }
+
 }
 
 // Function to move a node to a new parent folder
@@ -391,6 +396,11 @@ export async function moveNode(nodePath: string, newParentPath: string, kind: No
 
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);
+
+    // Update current note path if applicable
+    if (currentNotePath == nodePath) {
+        currentNotePath = newPath;
+    }
 }
 
 // Function to delete a node from the tree
@@ -419,6 +429,11 @@ export async function deleteNode(nodePath: string) {
 
     // Rebuild the tree to reflect the change
     await loadVaultTree(vaultPath);
+
+    // Update current note path if applicable
+    if (currentNotePath == nodePath) {
+        currentNotePath = null;
+    }
 }
 
 // Functuion that returns the effective order of children names for a folder: checking saved order in workspace or falling back to alphabetical order no saved order exists
@@ -500,6 +515,32 @@ export async function addPDFNote() {
 
     // Create a new folder within
     const newNotePath = await createPDFNote(parentPath, vaultPath, sourcePDF);
+
+    // Update workspace.json
+    await saveWorkspaceData();
+
+    // Rebuild the tree
+    await loadVaultTree(vaultPath);
+
+    // Automatically open the note
+    await openPDFNote(newNotePath);
+}
+
+// Function to create a new  PDF note
+export async function addDragedPDFNote(sourcePath: string) {
+    // Check if vault is open
+    if (!vaultPath) {
+        throw new Error("No vault is open");
+    }
+    
+    // If no folder is selected, default to the vault root
+    const parentPath = selectedFolderPath ?? ""; // Empty defaults to root since path is relative
+
+    // Expand the parent folder automatically
+    expandFolder(parentPath);
+
+    // Create a new folder within
+    const newNotePath = await createPDFNote(parentPath, vaultPath, sourcePath);
 
     // Update workspace.json
     await saveWorkspaceData();

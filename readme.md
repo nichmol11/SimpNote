@@ -1,7 +1,10 @@
 # SimpNote
 
-SimpNote is a local-first desktop note taking app for working with lecture material and markdown notes.
-Built with Svelte 5, TypeScript, and Tauri 2.
+SimpNote is a simple cross-platform desktop note taking application designed for the way lazy students like me like to take lectures notes.
+SimpNote provided for two types of notes: 
+- PDF notes: for taking notes alongside each page in a PDF document (e.g. lecture slides)
+- Plain notes: an infinite page for taking notes
+Both note types support markdown syntax, enabling the user to switch between the raw text in the editing mode, and rendered markdown in the viewer mode (live in-editor markdown rendering is planned.) This free and open source project has been built using Svelte 5, TypeScript, and Tauri 2, providing for a small and resource efficient binary, that is easy to work with.
 
 ## What It Does
 
@@ -24,7 +27,7 @@ Built with Svelte 5, TypeScript, and Tauri 2.
   - Stored as a single `<name>.md` file
 
 
-## Workspace Data Layout
+## Vault Data
 
 Inside the folder you choose as workspace, the app stores:
 
@@ -33,11 +36,14 @@ Inside the folder you choose as workspace, the app stores:
 - `*.pdf` (copied linked PDFs)
 - `*.md` (standalone text notes)
 
-## Prerequisites
+## Planned Features
+
+## Development guide
+Follow the guide below to set up a development environment on Debian or Fedora based systems. Begin by installing the necessary prerequisites.
 
 ### 1. System dependencies
 
-#### Ubuntu / Debian
+#### Debian based
 
 ```bash
 sudo apt update
@@ -52,7 +58,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
   librsvg2-dev
 ```
 
-#### Fedora
+#### Fedora and derivatives
 
 ```bash
 sudo dnf check-update
@@ -65,14 +71,6 @@ sudo dnf install webkit2gtk4.1-devel \
   librsvg2-devel \
   libxdo-devel
 sudo dnf group install "c-development"
-```
-
-#### NixOS
-
-Use the provided flake:
-
-```bash
-nix develop
 ```
 
 ### 2. Node.js
@@ -161,13 +159,10 @@ export XDG_DATA_DIRS="/usr/share:$XDG_DATA_DIRS"
 ## Repository Layout
 
 ```text
-Note-Taker-App/
-├── note-taker-app/                # Main Svelte + Tauri app
-│   ├── src/                       # Frontend source
-│   ├── src-tauri/                 # Rust backend / Tauri config
-│   └── package.json
-├── flake.nix                      # Nix dev environment
-└── readme.md
+SimpNote/                # Main Svelte + Tauri app
+├── src/                       # Frontend source
+├── src-tauri/                 # Rust backend / Tauri config
+└── package.json
 ```
 
 ## References

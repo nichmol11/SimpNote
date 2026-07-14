@@ -49,12 +49,20 @@
             </div>
         {/each}
     {:else}
-        <h2>Nothing is pinned yet!</h2>
+        <div class="placeholder">
+            <h2>Nothing is pinned yet!</h2>
+        </div>
+        
     {/if}
 </div>
 
 <style>
-    .pinned-list {
+    .placeholder {
+        width: 100%;
+        padding-left: 15px;
+        padding-right: 16px;
+        padding-top: 5px;
+        padding-bottom: 5px;
     }
     .pinned {
         width: 100%;
