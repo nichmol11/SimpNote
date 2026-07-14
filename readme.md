@@ -1,6 +1,6 @@
-# Note Taker App
+# SimpNote
 
-A local-first desktop note app for working with lecture material and markdown notes.
+SimpNote is a local-first desktop note taking app for working with lecture material and markdown notes.
 Built with Svelte 5, TypeScript, and Tauri 2.
 
 ## What It Does
@@ -10,26 +10,25 @@ Built with Svelte 5, TypeScript, and Tauri 2.
 - Provides a sidebar with folders for organizing notes.
 - Supports rename, delete, drag/drop reordering, and moving notes between folders.
 - Persists sidebar structure and order in `workspace.json`.
-- Autosaves after the first manual save of an opened note.
+- Notes are always saved automatically as you write like in OneNote
 
 ## Note Types
 
 - `PDF Note`:
-  - Backed by `<name>.json` + linked `<name>.pdf`
-  - Notes are stored per PDF page
-- `Text Note`:
-  - Backed by `<name>.md`
-  - Single markdown text canvas
+  - Allows notes to taken beside each page in the PDF
+  - Stored as a note bundle folder containing:
+    - `notes.json`: The user's notes (notes are keyed per PDF page number)
+    - `source.pdf`: The associated PDF file
+- `Plain Notes`:
+  - A single infinite markdown page
+  - Stored as a single `<name>.md` file
 
-In `workspace.json`, note entries include a `kind` field:
-- `"PDF Note"` for `.json` notes
-- `"Text Note"` for `.md` notes
 
 ## Workspace Data Layout
 
 Inside the folder you choose as workspace, the app stores:
 
-- `workspace.json` (sidebar folders, order, and metadata)
+- `.system/workspace.json` (sidebar folders, order, and metadata)
 - `*.json` (PDF note metadata/content)
 - `*.pdf` (copied linked PDFs)
 - `*.md` (standalone text notes)
