@@ -1,0 +1,2 @@
+- name: tauri-action
+  uses: tauri-apps/tauri-action@action-v1.0.0
