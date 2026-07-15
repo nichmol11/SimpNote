@@ -11,10 +11,10 @@
     } from '$lib/vault/backend/store.svelte';
     import type { PdfNotes } from '$lib/vault/backend/types';
 
-    // 1. Import the worker URL using Vite's asset bundling query
+    // Import the worker URL using Vite's asset bundling query
     import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
     
-    // 2. Explicitly assign the worker source configuration
+    // Explicitly assign the worker source configuration
     pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
 
     interface Props {
@@ -40,7 +40,6 @@ async function parsePdfDocument(arrayBuffer: ArrayBuffer, meta: PdfNotes) {
         const pdfDoc = await pdfjs.getDocument({ data: arrayBuffer }).promise;
         const loadedPages = [];
         
-        // Ensure pages object exists safely even on newly provisioned entries
         const pagesRecord = meta?.pages ?? {};
 
         for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -63,8 +62,6 @@ async function parsePdfDocument(arrayBuffer: ArrayBuffer, meta: PdfNotes) {
         const targetPage = pages.find(p => p.id === pageId);
         if (targetPage) {
             targetPage.note = updatedText;
-            
-            // Force re-trigger Svelte's proxy tracking bubble
             pages = [...pages]; 
         }
 

@@ -15,13 +15,11 @@
 
     let { notePath, showMarkdownAll }: Props = $props();
 
-    // 1. Establish a local state snapshot that copies our store baseline on mount
     let content = $state(typeof getCurrentNoteContent() === 'string' ? getCurrentNoteContent() as string : '');
     let autoSaveTimer: ReturnType<typeof setTimeout>;
 
     function handleInput(updatedText: string) {
-        content = updatedText; // Keep visual bindings active
-
+        content = updatedText;
         clearTimeout(autoSaveTimer);
         autoSaveTimer = setTimeout(async () => {
             try {

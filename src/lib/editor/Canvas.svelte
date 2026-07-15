@@ -34,7 +34,6 @@
 
         try {
             console.log(`Ingesting PDF: ${droppedPdfs[0]}`);
-            // Await your store function natively here
             await addDragedPDFNote(droppedPdfs[0]); 
         } catch (err) {
             console.error("Failed creating note from dropped PDF:", err);
@@ -46,12 +45,9 @@
         let unlisten: () => void;
 
         getCurrentWebviewWindow().onDragDropEvent((event) => {
-            // If a note is open, you might still want to ignore drops, 
-            // but let's handle the styling state correctly first.
             switch (event.payload.type) {
                 case 'enter':
                 case 'over':
-                    // Do not read event.payload.paths here as it's undefined or empty
                     if (!currentNotePath) {
                         isDraggingOver = true;
                     }
@@ -62,7 +58,7 @@
                     break;
                 case 'drop':
                     isDraggingOver = false;
-                    if (currentNotePath) return; // Guard drop action if a note is loaded
+                    if (currentNotePath) return; // Only allow when no note is open
                     
                     // Handle the actual dropped files safely here
                     handleFileDrop(event.payload.paths);
