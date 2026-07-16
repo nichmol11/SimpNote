@@ -13,7 +13,7 @@
 
     let vaultPath: string | null = $derived(getVaultPath());
     let vaultFolderName = $derived(
-        vaultPath ? vaultPath.split('/').filter(Boolean).pop() || '' : ''
+        vaultPath ? vaultPath.split(/[/\\]/).filter(Boolean).pop() || '' : '' // deal with Windows style paths
     );
 
     let isSidebarOpen: boolean = $derived(getIsSidearOpen());
