@@ -84,6 +84,15 @@ function findNodeByPath(currNode: TreeNode | null, path: string): TreeNode | nul
     return null; // Resturn null if found nowhere in the tree
 }
 
+// Function to return the display names of a folder's current children, optionally excluding one path
+function getSiblingNames(parentPath: string, excludePath?: string): string[] {
+    const parentNode = parentPath ? findNodeByPath(tree, parentPath) : tree;
+    if (!parentNode || !parentNode.children) return [];
+    return parentNode.children
+        .filter(c => c.path !== excludePath)
+        .map(c => c.name);
+}
+
 // Function to return the paths of all descendant nodes of a given node
 function collectDescendantPaths(parentNode: TreeNode): string[] {
     let descendantPaths: string[] = new Array;
@@ -130,7 +139,6 @@ function updatePathReferences(changes: Array<[oldPath: string, newPath: string |
                 order[newPath] = value;
             }
         }
-
         // Update lastOpened
         if (lastOpened === oldPath) {
             lastOpened = newPath;
@@ -146,7 +154,6 @@ function updatePathReferences(changes: Array<[oldPath: string, newPath: string |
                 }
             }
         }
-
         // Update noteState
         if(oldPath in noteState) {
             const value = noteState[oldPath];
@@ -160,14 +167,22 @@ function updatePathReferences(changes: Array<[oldPath: string, newPath: string |
 
 // Function to update a node's parent's references in the order variable (workspace)
 function updateParentReferences(oldParentPath: string, oldName: string, newParentPath: string | null, newName: string | null): void {
+    let insertIndex: number | null = null;
     // Remove reference from the old parent
     if (oldParentPath in order) {
         const index = order[oldParentPath].indexOf(oldName);
-        if (index !== -1) order[oldParentPath].splice(index, 1);
+        if (index !== -1) {
+            order[oldParentPath].splice(index, 1);
+            if (oldParentPath === newParentPath) insertIndex = index;
+        }
     }
     // If this is not a deletion (i.e. move or rename), add the node to its new parent, or add the updated node back
     if (newParentPath && newName && newParentPath in order) {
-        order[newParentPath].push(newName); // If new parent has no order entry, it was previously empty - default to alphabetical order
+        if (insertIndex !== null) { // preserve position for renames
+            order[newParentPath].splice(insertIndex, 0, newName);
+        } else { // If new parent has no order entry, it was previously empty - default to alphabetical order
+            order[newParentPath].push(newName);
+        }
     }
 }
 
@@ -331,6 +346,13 @@ export async function renameNode(nodePath: string, newName: string, kind: NodeKi
 
     // Derive the new path
     const parentPath = nodePath.split('/').slice(0, -1).join('/');
+    
+    // Guard against name collisions with existing sibling nodes
+    const siblingNames = getSiblingNames(parentPath, nodePath);
+    if (siblingNames.includes(newName.trim())) {
+        throw new Error(`An item named "${newName.trim()}" already exists in this folder`);
+    }
+    
     const newPath = parentPath 
         ? `${parentPath}/${newName}${kind === 'plainNote' ? '.md' : ''}`
         : `${newName}${kind === 'plainNote' ? '.md' : ''}`;
@@ -373,6 +395,13 @@ export async function moveNode(nodePath: string, newParentPath: string, kind: No
 
     // Derive the new path
     const nodeBaseName = getBaseName(nodePath);
+
+    // Guard agaisnt name collisions with siblings in destination folder
+    const siblingNames = getSiblingNames(newParentPath, nodePath);
+    if (siblingNames.includes(nodeBaseName)) {
+        throw new Error(`An item named "${nodeBaseName}" already exists in the destination folder`);
+    }
+    
     const newPath = newParentPath
         ? `${newParentPath}/${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`
         : `${nodeBaseName}${kind === 'plainNote' ? '.md' : ''}`;

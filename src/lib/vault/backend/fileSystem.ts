@@ -131,7 +131,7 @@ export async function writeWorkspace(vaultPath: string, data: any): Promise<void
 // Function to create a new plain note
 export async function createPlainNote(relativeParentPath: string, vaultPath: string): Promise<string> {
     const parentPath = await getFullPath(relativeParentPath, vaultPath);
-    const baseName = 'New Note';
+    const baseName = 'New Plain Note';
 
     // Prevent name collisons
     for (let i = 0; ; i++) {
@@ -171,7 +171,7 @@ export async function writePlainNote(relativePath: string, vaultPath: string, no
 // Function to create a new PDF note
 export async function createPDFNote(relativeParentPath: string, vaultPath: string, sourcePDFPath: string): Promise<string> {
     const parentPath = await getFullPath(relativeParentPath, vaultPath);
-    const baseName = 'New Note';
+    const baseName = 'New PDF Note';
     
     // Prevent name collisons
     for (let i = 0; ; i++) {

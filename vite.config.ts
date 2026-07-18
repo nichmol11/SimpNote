@@ -11,6 +11,12 @@ export default defineConfig({
 		exclude: ['pdfjs-dist'] // Add this line
 	},
 
+	server: {
+		watch: {
+			ignored: ['**/src-tauri/**']
+		}
+	},
+
 	test: {
 		expect: { requireAssertions: true },
 
