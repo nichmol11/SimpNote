@@ -95,12 +95,12 @@
             {#if currentNoteKind === 'plainNote'}
                 <PlainNoteEditor notePath={currentNotePath} {showMarkdownAll} />
             {:else if currentNoteKind === 'pdfNote'}
-                <PdfNoteEditor notePath={currentNotePath} {showMarkdownAll} />
+                <PdfNoteEditor notePath={currentNotePath} {showMarkdownAll} zoom={globalZoom} />
             {/if}
         </div>
     {:else}
         <div class="placeholder-dropzone">
-            <div class="dropzone-art">📄</div>
+            <div class="dropzone-icon">📄</div>
             <p>No note loaded.</p>
             <p class="sub-text">Open or create a note in the sidebar, or <strong>drag and drop a PDF file here</strong> to create a new PDF note.</p>
         </div>
@@ -115,7 +115,7 @@
         overflow-x: auto;
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start;
         box-sizing: border-box;
         transition: background-color 0.2s ease, outline 0.2s ease;
     }
@@ -127,8 +127,9 @@
     }
 
     .zoom-surface {
-        transform-origin: top center;
-        width: 100%;
+        width: fit-content;
+        min-width: 100%;
+        margin: 0 auto;
     }
 
     .global-zoom-controls {
@@ -161,6 +162,7 @@
     .preview-toggle-btn { display: flex; align-items: center; justify-content: center; font-size: 14px; }
     
     .placeholder-dropzone { 
+        align-self: center;
         text-align: center; 
         color: #555; 
         margin-top: 15vh;
@@ -170,7 +172,7 @@
         gap: 12px;
         padding: 40px;
     }
-    .dropzone-art {
+    .dropzone-icon {
         font-size: 4rem;
         opacity: 0.7;
         margin-bottom: 10px;
