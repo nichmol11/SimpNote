@@ -52,7 +52,7 @@ The vault also contains a hidden `.system` folder containing `workspace.json` us
 
 The system relies on building an in-memory tree node representation of the vault file system on disk. The file tree is built by walking the vault directory in Rust (`build_tree` in `src-tauri/src/lib.rs`), which returns a serialized tree to the frontend. The Svelte store `lib/vault/backend/store.svelte.ts` then owns the authoritative in-memory tree, tracking display order (via `workspace.json`) separately from the underlying filesystem structure — this lets reordering and nesting update instantly without round-tripping to disk on every drag/drop. All filesystem mutation calls flow in one direction: Components → store → fileSystem.ts → Tauri APIs.
 
-# Known issues
+## Known issues
 - PDF image rendering - some images embedded in PDFs do not render at all and some is zoom-level dependent
 
 ## Planned Features/Updates
