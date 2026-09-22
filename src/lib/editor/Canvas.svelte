@@ -121,8 +121,8 @@
     }
 
     #content.drag-active {
-        background-color: #f0f7ff;
-        outline: 2px dashed #007bff;
+        background-color: var(--color-accent-surface);
+        outline: 2px dashed var(--color-accent);
         outline-offset: -10px;
     }
 
@@ -140,31 +140,31 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        background: rgba(255, 255, 255, 0.95);
-        border: 1px solid #d6d6d6;
+        background: color-mix(in srgb, var(--color-surface) 95%, transparent);
+        border: 1px solid var(--color-border);
         border-radius: 10px;
         padding: 6px 10px;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+        box-shadow: 0 8px 22px var(--color-shadow);
     }
 
     .global-zoom-controls button {
         width: 30px;
         height: 30px;
-        border: 1px solid #c6c6c6;
+        border: 1px solid var(--color-border-strong);
         border-radius: 6px;
-        background: #f5f7fb;
+        background: var(--color-surface-raised);
         cursor: pointer;
         font-size: 18px;
         line-height: 1;
     }
     .global-zoom-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .global-zoom-controls span { min-width: 52px; text-align: center; font-size: 13px; font-weight: 600; color: #36414d; }
+    .global-zoom-controls span { min-width: 52px; text-align: center; font-size: 13px; font-weight: 600; color: var(--color-text-muted); }
     .preview-toggle-btn { display: flex; align-items: center; justify-content: center; font-size: 14px; }
     
     .placeholder-dropzone { 
         align-self: center;
         text-align: center; 
-        color: #555; 
+        color: var(--color-text-muted); 
         margin-top: 15vh;
         display: flex;
         flex-direction: column;
@@ -177,5 +177,5 @@
         opacity: 0.7;
         margin-bottom: 10px;
     }
-    .sub-text { font-size: 0.95rem; color: #777; max-width: 460px; line-height: 1.5; }
+    .sub-text { font-size: 0.95rem; color: var(--color-text-muted); max-width: 460px; line-height: 1.5; }
 </style>

@@ -71,6 +71,6 @@
     }
     .drop-gap.is-drag-over {
         height: 16px;
-        background-color: #dbeafe;
+        background-color: var(--color-accent-surface);
     }
 </style>

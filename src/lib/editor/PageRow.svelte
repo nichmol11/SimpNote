@@ -160,7 +160,7 @@
         padding: 0;
         line-height: 0;
         overflow: hidden;
-        border: 1px solid #cfcfcf;
+        border: 1px solid var(--color-border);
         border-radius: 2px;
         background: transparent;
     }
@@ -183,11 +183,25 @@
         min-height: 100%;
         box-sizing: border-box;
         padding: 15px;
-        border: 1px solid #ccc;
+        border: 1px solid var(--color-border);
         border-radius: 4px;
+        background: var(--color-surface-raised);
+        color: var(--color-text);
+        caret-color: var(--color-accent);
+        outline: none;
         font-family: 'Inter', sans-serif;
         resize: vertical;
         flex: 1;
+    }
+
+    textarea::placeholder {
+        color: var(--color-text-muted);
+        opacity: 1;
+    }
+
+    textarea:focus {
+        border-color: var(--color-focus);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus) 25%, transparent);
     }
 
     .markdown-preview {
@@ -196,9 +210,9 @@
         min-height: 100%;
         box-sizing: border-box;
         padding: 15px;
-        border: 1px solid #ccc;
+        border: 1px solid var(--color-border);
         border-radius: 4px;
-        background: #fafafa;
+        background: var(--color-surface-raised);
         overflow-y: auto;
         flex: 1;
     }
@@ -211,14 +225,14 @@
     .markdown-preview :global(ol) { margin: 0.5em 0; padding-left: 1.5em; list-style-type: decimal; }
     .markdown-preview :global(li) { margin: 0.25em 0; display: list-item; }
     .markdown-preview :global(table) { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
-    .markdown-preview :global(th), .markdown-preview :global(td) { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
-    .markdown-preview :global(th) { background: #f0f0f0; font-weight: bold; }
-    .markdown-preview :global(tr:nth-child(even)) { background: #fafafa; }
-    .markdown-preview :global(code) { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; font-family: monospace; }
-    .markdown-preview :global(pre) { background: #e8e8e8; padding: 12px; border-radius: 4px; overflow-x: auto; }
+    .markdown-preview :global(th), .markdown-preview :global(td) { border: 1px solid var(--color-border); padding: 8px 12px; text-align: left; }
+    .markdown-preview :global(th) { background: var(--color-surface-raised); font-weight: bold; }
+    .markdown-preview :global(tr:nth-child(even)) { background: var(--color-surface-raised); }
+    .markdown-preview :global(code) { background: var(--color-accent-surface); padding: 2px 6px; border-radius: 3px; font-family: monospace; }
+    .markdown-preview :global(pre) { background: var(--color-surface-raised); padding: 12px; border-radius: 4px; overflow-x: auto; }
     .markdown-preview :global(pre code) { background: none; padding: 0; }
-    .markdown-preview :global(blockquote) { border-left: 3px solid #ccc; margin: 0.5em 0; padding-left: 1em; color: #666; }
-    .markdown-preview :global(a) { color: #007bff; }
+    .markdown-preview :global(blockquote) { border-left: 3px solid var(--color-border-strong); margin: 0.5em 0; padding-left: 1em; color: var(--color-text-muted); }
+    .markdown-preview :global(a) { color: var(--color-accent); }
     .markdown-preview :global(strong) { font-weight: bold; }
     .markdown-preview :global(em) { font-style: italic; }
 </style>

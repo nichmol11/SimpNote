@@ -342,12 +342,12 @@
 
     /* Folder row */
     .folder-row-container {
-        background-color: white;
+        background-color: var(--color-surface);
     }
 
     /* Highlight style for the single active selection */
     .folder-row-container.is-selected {
-        background-color: #e0f2fe; /* Light blue highlight */
+        background-color: var(--color-accent-surface);
         border-radius: 3px;
     }
 
@@ -371,8 +371,8 @@
 
     .root-drop-zone.is-drag-over {
         height: 24px;
-        background-color: #dbeafe;
-        border: 2px dashed #3b82f6;
+        background-color: var(--color-accent-surface);
+        border: 2px dashed var(--color-focus);
     }
 
     /* Reset button styles */
@@ -384,8 +384,8 @@
     }
 
     .folder-row-container.is-drag-over {
-        background-color: #dbeafe;
-        outline: 2px dashed #3b82f6;
+        background-color: var(--color-accent-surface);
+        outline: 2px dashed var(--color-focus);
         border-radius: 3px;
         position: relative;
         z-index: 1;
@@ -460,13 +460,13 @@
     .node-rename:focus {
         outline: none;
         box-shadow: none;
-        color: #666;
+        color: var(--color-text-muted);
         text-decoration: underline;
     }
 
     .del-btn {
         background: none; border: none; cursor: pointer;
-        padding: 4px; color: #666; font-size: 1.1rem;
+        padding: 4px; color: var(--color-text-muted); font-size: 1.1rem;
     }
-    .del-btn:hover { color: #ef4444; }
+    .del-btn:hover { color: var(--color-danger); }
 </style>

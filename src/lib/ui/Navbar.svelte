@@ -2,6 +2,7 @@
 <script lang="ts">
     import { getCurrentWindow } from '@tauri-apps/api/window';
     import { onMount } from 'svelte';
+    import { setThemePreference, themeState, type ThemePreference } from '$lib/theme/theme.svelte';
     import sidebarIcon from '$lib/img/sidebar-icon.svg';
     import { getBaseName } from '$lib/vault/backend/pathUtils';
     import { getCurrentNotePath, toggleSidebar, closeNote } from '$lib/vault/backend/store.svelte';
@@ -9,6 +10,11 @@
     let currentNotePath = $derived(getCurrentNotePath());
     let isWindowMaximized = $state(false);
     let isWindowFullscreen = $state(false);
+    let themePreference = $derived(themeState.preference);
+
+    function handleThemeChange(event: Event) {
+        setThemePreference((event.currentTarget as HTMLSelectElement).value as ThemePreference);
+    }
 
     async function updateWindowState() {
         try {
@@ -96,6 +102,17 @@
 
 
         <div class="window-controls" aria-label="Window controls" data-tauri-drag-region="false">
+            <label class="theme-control">
+                <span class="sr-only">Theme</span>
+                <span class="theme-select-wrap">
+                    <select value={themePreference} onchange={handleThemeChange} title="Theme">
+                        <option value="system">System</option>
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                    <span class="theme-select-arrow" aria-hidden="true"></span>
+                </span>
+            </label>
             <button 
                 type="button"
                 class="window-btn utility"
@@ -121,8 +138,8 @@
     .navbar {
         width: 100%;
         height: 40px;
-        border-bottom: 1px solid #ddd;
-        background-color: white;
+        border-bottom: 1px solid var(--color-border);
+        background-color: var(--color-surface);
         display: flex;
         align-items: center;
         flex-shrink: 0;
@@ -150,7 +167,7 @@
     .note-title-name {
         grid-column: 2;
         font-size: 14px;
-        color: #333;
+        color: var(--color-text);
         text-align: center;
         margin: 0;
         pointer-events: none;
@@ -162,7 +179,7 @@
     }
 
     .close-note-btn:hover {
-        color:#ef4444;
+        color: var(--color-danger);
     }
 
     #sidebar-toggle, .window-controls {
@@ -182,13 +199,59 @@
     }
 
     .window-controls {
-        border-left: 1px solid #ddd;
+        border-left: 1px solid var(--color-border);
         height: 100%;
         padding-left: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+    }
+
+    .theme-select-wrap {
+        position: relative;
+        display: inline-flex;
+        flex-shrink: 0;
+    }
+
+    .theme-control select {
+        width: 82px;
+        min-width: 82px;
+        height: 28px;
+        flex-shrink: 0;
+        box-sizing: border-box;
+        padding: 0 22px 0 6px;
+        border: 1px solid var(--color-border);
+        border-radius: 6px;
+        background: var(--color-surface);
+        color: var(--color-text);
+        font-size: 12px;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+
+    .theme-select-arrow {
+        position: absolute;
+        top: 50%;
+        right: 8px;
+        width: 6px;
+        height: 6px;
+        border-right: 1.5px solid var(--color-text-muted);
+        border-bottom: 1.5px solid var(--color-text-muted);
+        transform: translateY(-65%) rotate(45deg);
+        pointer-events: none;
+    }
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
     .window-btn {
@@ -199,7 +262,7 @@
         padding: 0;
         border: none;
         background: transparent;
-        color: #333;
+        color: var(--color-text);
         font-size: 17px;
         line-height: 1;
         border-radius: 8px;
@@ -210,11 +273,11 @@
     }
 
     .window-btn.utility:hover {
-        background: #ececec;
+        background: var(--color-surface-raised);
     }
 
     .window-btn.close:hover {
-        background: #dc3545;
-        color: #fff;
+        background: var(--color-danger);
+        color: var(--color-accent-text);
     }
 </style>

@@ -5,11 +5,15 @@
     import Navbar from '$lib/ui/Navbar.svelte';
     import { onMount, setContext } from 'svelte';
     import { restoreVault, getIsRestoring, getIsSidearOpen } from '$lib/vault/backend/store.svelte';
+    import { initializeTheme } from '$lib/theme/theme.svelte';
 
     const { children } = $props();
 
     onMount(() => {
+        const cleanupTheme = initializeTheme();
         restoreVault();
+
+        return cleanupTheme;
     })
 
     let isSidebarOpen = $derived(getIsSidearOpen());

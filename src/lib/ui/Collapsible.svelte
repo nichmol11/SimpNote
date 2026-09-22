@@ -35,7 +35,7 @@
     border-radius: 3px;     /* Strict 3px radius */
     overflow: hidden;       
     width: 100%;
-    background-color: white;
+    background-color: var(--color-surface);
     margin: 10px 0;         /* Added margin to help it stand out in your sidebar */
   }
 
@@ -60,7 +60,7 @@
 
   .content {
     width: 100%;
-    background-color: #ffffff;
-    color: #333;
+    background-color: var(--color-surface);
+    color: var(--color-text);
   }
 </style>

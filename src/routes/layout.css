@@ -1,3 +1,45 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
+
+:root[data-theme='light'] {
+	color-scheme: light;
+	--color-background: #f4f6f8;
+	--color-surface: #ffffff;
+	--color-surface-raised: #fafbfc;
+	--color-text: #20252b;
+	--color-text-muted: #68727d;
+	--color-border: #d6dbe1;
+	--color-border-strong: #b8c0c9;
+	--color-accent: #1769aa;
+	--color-accent-text: #ffffff;
+	--color-accent-surface: #e4f1fc;
+	--color-danger: #dc3545;
+	--color-danger-surface: #fbe7ea;
+	--color-focus: #3b82f6;
+	--color-shadow: rgba(0, 0, 0, 0.14);
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+	--color-background: #171a1f;
+	--color-surface: #20252b;
+	--color-surface-raised: #282e35;
+	--color-text: #edf1f5;
+	--color-text-muted: #aab4bf;
+	--color-border: #3b444e;
+	--color-border-strong: #56616d;
+	--color-accent: #62a8e8;
+	--color-accent-text: #101820;
+	--color-accent-surface: #17334b;
+	--color-danger: #f07884;
+	--color-danger-surface: #49252b;
+	--color-focus: #79b8ff;
+	--color-shadow: rgba(0, 0, 0, 0.38);
+}
+
+:root,
+body {
+	background: var(--color-background);
+	color: var(--color-text);
+}

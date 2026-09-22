@@ -4,6 +4,17 @@
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(function () {
+				var key = 'simpnote-theme';
+				var saved = localStorage.getItem(key);
+				var preference = saved === 'light' || saved === 'dark' ? saved : 'system';
+				var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				var theme = preference === 'system' ? (isDark ? 'dark' : 'light') : preference;
+				document.documentElement.dataset.theme = theme;
+				document.documentElement.style.colorScheme = theme;
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

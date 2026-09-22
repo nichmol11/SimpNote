@@ -98,8 +98,8 @@
         min-wdith: 0;
         height: 100%;
         padding: 16px;
-        background-color: #f9f9f9;
-        border-right: 1px solid #ddd;
+        background-color: var(--color-background);
+        border-right: 1px solid var(--color-border);
         overflow-y: auto;
         overflow-x: hidden;
         box-sizing: border-box;
@@ -114,7 +114,7 @@
     .vault {
         display: flex;
         flex-direction: column;
-        background-color: white;
+        background-color: var(--color-surface);
         border-radius: 3px;
         padding-left: 10px;
         padding-right: 10px;
@@ -131,7 +131,7 @@
     .vault-btn-open {
         width: 100%;
         padding: 5px;
-        background: #007bff; color: white;
+        background: var(--color-accent); color: var(--color-accent-text);
         border: none; border-radius: 6px; cursor: pointer;
         font-weight: 500;
     }
@@ -146,21 +146,21 @@
         padding: 5px;
         padding-right: 0px;
         width: 100%;
-        background-color: white;
+        background-color: var(--color-surface);
         border-radius: 12px;
     }
 
     .add-node-btn {
         margin-top: 10px; width: 100%; padding: 8px;
-        background: none; border: 1px dashed #ccc; 
+        background: none; border: 1px dashed var(--color-border-strong); 
         border-radius: 12px;
-        color: #666; cursor: pointer;
+        color: var(--color-text-muted); cursor: pointer;
         display: flex;
         justify-content: center;
         align-items: center;
     }
 
-    .add-node-btn:hover { border-color: #666; color: #333; }
+    .add-node-btn:hover { border-color: var(--color-text-muted); color: var(--color-text); }
 
     .add-node-btn-content {
         width: 80%;
