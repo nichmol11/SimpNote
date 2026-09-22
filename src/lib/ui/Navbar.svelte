@@ -230,6 +230,11 @@
         -webkit-appearance: none;
     }
 
+    .theme-control select:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
     .theme-select-arrow {
         position: absolute;
         top: 50%;
